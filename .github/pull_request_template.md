@@ -13,6 +13,6 @@ Closes #
 
 ## Checklist
 
-- [ ] I tested this locally (`npm start` / `npm test`)
+- [ ] I ran `npm test` in `backend/` and `frontend/` and both pass
 - [ ] I updated the README if setup or usage changed
 - [ ] No secrets or `.env` files are committed
