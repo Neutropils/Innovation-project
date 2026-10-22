@@ -41,7 +41,7 @@ These are enforced on GitHub for `main`:
 - **At least 1 approving review** from a teammate. You can't approve your own PR.
 - **New commits dismiss old approvals.** If you push changes after approval, get it re-reviewed.
 - **All review conversations must be resolved** before merging.
-- **CI must pass.** The `test` check (runs `npm test`) has to be green.
+- **CI must pass.** The `test` check (runs `npm test` in `backend/` and `frontend/`, plus a frontend build) has to be green.
 - **Branch must be up to date with `main`** before merging (use the "Update branch" button on the PR).
 - **Squash and merge** is the merge method, so each PR becomes one clean commit on `main`.
 - **No force-pushing or deleting `main`.**
