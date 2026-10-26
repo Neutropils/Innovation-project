@@ -162,7 +162,7 @@ design/
 - **Never commit or push directly to `main`.** It's protected - pushes will be rejected.
 - Create a branch: `feature/<short-name>`, `fix/<short-name>` or `docs/<short-name>`.
 - Commit messages in imperative mood ("Add booking form", not "Added booking form"), first line under ~70 characters.
-- Open a pull request; it needs 1 teammate approval and the `test` CI check to pass. Merge with **Squash and merge**.
+- Open a pull request; it needs the `test` CI check to pass (no approval required - the author merges it). Merge with **Squash and merge**.
 - Before committing, run `npm test` in whichever of `backend/` / `frontend/` you changed, and `npm run build` in `frontend/` if you touched it.
 - Full details: [CONTRIBUTING.md](CONTRIBUTING.md).
 

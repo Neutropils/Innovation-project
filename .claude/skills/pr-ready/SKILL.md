@@ -7,7 +7,7 @@ argument-hint: [optional short description of the change]
 
 # Prepare a pull request
 
-`main` is protected: PRs need 1 approval and the `test` CI check. Your job is to make sure this work will pass review and CI the first time.
+`main` is protected: changes go through a PR that needs the `test` CI check to pass (no approval required - the author merges it). Your job is to make sure this work will pass CI the first time, since nobody else checks it before it lands.
 
 ## 1. Branch
 
