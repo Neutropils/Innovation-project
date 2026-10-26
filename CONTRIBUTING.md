@@ -30,23 +30,21 @@ Thanks for helping out. Following these steps keeps us from overwriting each oth
    ```bash
    git push -u origin feature/login-page
    ```
-5. **Open a pull request** on GitHub. Fill in the template and ask at least one teammate to review.
-6. **After approval, merge** the PR and delete the branch.
+5. **Open a pull request** on GitHub and fill in the template.
+6. **Once the CI check is green, merge** the PR yourself and delete the branch.
 
 ## Merge rules
 
 These are enforced on GitHub for `main`:
 
 - **No direct pushes to `main`.** All changes go through a pull request.
-- **At least 1 approving review** from a teammate. You can't approve your own PR.
-- **New commits dismiss old approvals.** If you push changes after approval, get it re-reviewed.
-- **All review conversations must be resolved** before merging.
-- **CI must pass.** The `test` check (runs `npm test`) has to be green.
+- **No approval needed.** You can merge your own PR. Ask a teammate to look if you want a second opinion.
+- **CI must pass.** The `test` check (runs `npm test` in `backend/` and `frontend/`, plus a frontend build) has to be green.
 - **Branch must be up to date with `main`** before merging (use the "Update branch" button on the PR).
 - **Squash and merge** is the merge method, so each PR becomes one clean commit on `main`.
 - **No force-pushing or deleting `main`.**
 
-The person who opened the PR merges it after approval, then deletes the branch.
+The person who opened the PR merges it once CI passes, then deletes the branch.
 
 ## Commit messages
 
