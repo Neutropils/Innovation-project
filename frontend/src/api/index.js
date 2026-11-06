@@ -11,11 +11,13 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Redirect to /login when the server returns 401
+// Redirect to /login when the server returns 401 - except for the login request itself,
+// where a 401 just means wrong credentials and the form shows the error.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isLoginRequest = err.config?.url?.endsWith('/auth/login')
+    if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('app_token')
       window.location.href = '/login'
     }

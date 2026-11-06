@@ -6,7 +6,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest",
-    "db:test": "node src/testConnection.js"
+    "db:test": "node src/testConnection.js",
+    "db:migrate": "node src/migrate.js",
+    "db:create-user": "node src/createUser.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

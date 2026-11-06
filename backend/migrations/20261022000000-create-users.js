@@ -1,6 +1,6 @@
 'use strict'
 
-const ROLES = ['admin', 'member']
+const ROLES = ['admin', 'member']   // original roles - inspector and contractor are added in 20261106000000
 
 module.exports = {
   async up(queryInterface, Sequelize) {

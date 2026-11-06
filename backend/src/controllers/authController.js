@@ -18,11 +18,12 @@ function signToken(user) {
 async function register(req, res) {
   try {
     const body = await registerSchema.validate(req.body, { abortEarly: false, stripUnknown: true })
-    const exists = await User.findOne({ where: { email: body.email } })
+    const email = body.email.trim().toLowerCase()
+    const exists = await User.findOne({ where: { email } })
     if (exists) return error(res, 'An account with this email already exists.', 'EMAIL_IN_USE', 409)
     const hash = await bcrypt.hash(body.password, 12)
     // New accounts are always members - promote to admin directly in the database
-    const user = await User.create({ name: body.name, email: body.email, password: hash, role: 'member' })
+    const user = await User.create({ name: body.name, email, password: hash, role: 'member' })
     const token = signToken(user)
     return created(res, {
       token,
@@ -34,14 +35,25 @@ async function register(req, res) {
   }
 }
 
+// A real bcrypt hash (cost 12) used when the email is unknown, so the response time
+// does not reveal which emails have accounts. Computed once on first use.
+let dummyHash
+function getDummyHash() {
+  if (!dummyHash) dummyHash = bcrypt.hashSync('timing-equaliser', 12)
+  return dummyHash
+}
+
 async function login(req, res) {
   try {
     const body = await loginSchema.validate(req.body, { abortEarly: false, stripUnknown: true })
-    const user = await User.findOne({ where: { email: body.email } })
-    // Constant-time comparison: always run bcrypt even when user not found to prevent timing attacks
-    const hash = user ? user.password : '$2b$12$invalidhashfortimingreasons00000000000'
-    const valid = await bcrypt.compare(body.password, hash)
+    const user = await User.findOne({ where: { email: body.email.trim().toLowerCase() } })
+    // Always run bcrypt, even when the user is not found, to prevent timing attacks
+    const valid = await bcrypt.compare(body.password, user ? user.password : getDummyHash())
     if (!user || !valid) return error(res, 'Invalid email or password.', 'INVALID_CREDENTIALS', 401)
+    if (!user.isActive) {
+      return error(res, 'This account has been deactivated. Contact your administrator.', 'ACCOUNT_DISABLED', 403)
+    }
+    await user.update({ lastLoginAt: new Date() })
     const token = signToken(user)
     return success(res, {
       token,
