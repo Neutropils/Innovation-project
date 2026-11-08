@@ -24,7 +24,7 @@ afterEach(() => localStorage.clear())
 describe('route guards', () => {
   it('sends signed-out users to the login page', () => {
     renderAt('/dashboard')
-    expect(screen.getByText(/Login page/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
   })
 
   it('shows the dashboard to a member', () => {
@@ -43,5 +43,19 @@ describe('route guards', () => {
     loginAs('admin')
     renderAt('/admin')
     expect(screen.getByRole('heading', { name: 'Admin' })).toBeInTheDocument()
+  })
+})
+
+describe('new roles', () => {
+  it.each(['inspector', 'contractor'])('lands a signed-in %s on the dashboard', (role) => {
+    loginAs(role)
+    renderAt('/')
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+  })
+
+  it.each(['inspector', 'contractor'])('blocks a %s from admin pages', (role) => {
+    loginAs(role)
+    renderAt('/admin')
+    expect(screen.getByText('403 - Forbidden')).toBeInTheDocument()
   })
 })

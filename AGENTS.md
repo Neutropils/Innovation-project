@@ -55,6 +55,8 @@ Do **not** commit `.env`, run `git push` to `main`, or install global packages a
 | `backend/` | `npm start` | API without auto-restart |
 | `backend/` | `npm test` | Jest + Supertest |
 | `backend/` | `npm run db:test` | Check database connection, list tables |
+| `backend/` | `npm run db:migrate` | Apply pending migrations to the database in `DATABASE_URL` (`-- --undo` reverts the last one) |
+| `backend/` | `npm run db:create-user -- --email <e> --name "<n>" --role <admin\|inspector\|contractor\|member>` | Create a real login account; prints a generated password (`--reset` to change an existing one) |
 | `frontend/` | `npm run dev` | Vite dev server, port 5173, proxies `/api` → `localhost:3000` |
 | `frontend/` | `npm run build` | Production build - must succeed (CI checks it) |
 | `frontend/` | `npm test` | Jest + React Testing Library |
@@ -147,7 +149,7 @@ design/
 
 ### Roles
 
-`admin` and `member`, defined in `backend/src/models/User.js`. Sign-up always creates a `member`. If you add a role, update it in **all** of: `models/User.js`, the users migration, `frontend/src/router/routes.js` (`ROLE_HOMES`) and `frontend/src/layouts/AppLayout.jsx` (`ROLE_META`).
+`admin`, `inspector`, `contractor` and `member`, defined in `backend/src/models/User.js` (inspector and contractor were added by migration `20261106000000`). Sign-up always creates a `member`. If you add a role, update it in **all** of: `models/User.js`, the users migration, `frontend/src/router/routes.js` (`ROLE_HOMES`) and `frontend/src/layouts/AppLayout.jsx` (`ROLE_META`).
 
 ### Tests
 

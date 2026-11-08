@@ -8,7 +8,7 @@ export const NAV_ROUTES = [
     path: '/dashboard',
     label: 'Dashboard',
     Icon: LayoutDashboard,
-    roles: ['admin', 'member'],
+    roles: ['admin', 'inspector', 'contractor', 'member'],
   },
 
   // ── Admin ────────────────────────────────────────────────────────────────────
@@ -22,8 +22,10 @@ export const NAV_ROUTES = [
 
 // Default landing page per role after login
 export const ROLE_HOMES = {
-  admin:  '/dashboard',
-  member: '/dashboard',
+  admin:      '/dashboard',
+  inspector:  '/dashboard',
+  contractor: '/dashboard',
+  member:     '/dashboard',
 }
 
 export function getRoleHome(role) {

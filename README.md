@@ -59,6 +59,10 @@ cd frontend && npm test
 
 `npm run db:test` in `backend/` checks that your `DATABASE_URL` works and lists the tables.
 
+To get a working login on a fresh database, run `npm run db:migrate` once, then create accounts with
+`npm run db:create-user -- --email <email> --name "<name>" --role <admin|inspector|contractor|member>`.
+The script prints the password once and stores only its bcrypt hash - share it privately, never commit it.
+
 ## Project structure
 
 ```
