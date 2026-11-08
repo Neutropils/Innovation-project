@@ -25,6 +25,11 @@ const ROLES = [
   { Icon: ShieldCheck, label: 'Admins' },
 ]
 
+// Staggered entrance: elements start hidden (fill-mode-both) and rise in after their delay.
+// Delays go in inline styles so the animation shorthand from the classes can't reset them.
+const ENTER = 'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 motion-safe:fill-mode-both'
+const stagger = (seconds) => ({ animationDelay: `${seconds}s` })
+
 // Turns an Axios error from POST /auth/login into a message the user can act on.
 function loginErrorMessage(err) {
   if (!err.response) return 'Cannot reach the server. Check your connection and try again.'
@@ -101,11 +106,11 @@ export default function LoginPage() {
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#0B1220] md:grid md:grid-cols-2">
       {/* ── Backdrop: blueprint grid + glows ─────────────────────────────────── */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:28px_28px] [mask-image:linear-gradient(to_bottom,black,transparent_70%)]"
+        className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:28px_28px] [mask-image:linear-gradient(to_bottom,black,transparent_70%)] motion-safe:animate-grid-pan"
         aria-hidden="true"
       />
-      <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-teal-500/25 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute top-40 -left-24 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl md:top-auto md:bottom-0" aria-hidden="true" />
+      <div className="pointer-events-none absolute -top-24 -right-20 h-72 w-72 rounded-full bg-teal-500/25 blur-3xl motion-safe:animate-drift" aria-hidden="true" />
+      <div className="pointer-events-none absolute top-40 -left-24 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl motion-safe:animate-drift md:top-auto md:bottom-0" style={{ animationDirection: 'reverse', animationDuration: '23s' }} aria-hidden="true" />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section className="relative flex flex-col px-6 pt-[max(1.75rem,env(safe-area-inset-top))] pb-8 text-white md:justify-between md:px-12 md:py-12 lg:px-16">
@@ -122,18 +127,21 @@ export default function LoginPage() {
         <div className="mt-6 flex items-center gap-4 md:mt-0 md:flex-col md:items-start md:gap-8">
           <LiftIllustration className="h-28 w-auto flex-shrink-0 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-700 md:h-56 lg:h-64" />
           <div>
-            <p className="text-xl font-semibold leading-snug tracking-tight md:text-4xl md:leading-tight">
-              Safer lifts,<br className="hidden md:block" /> <span className="text-teal-300">checked properly.</span>
+            <p className={cn('text-xl font-semibold leading-snug tracking-tight md:text-4xl md:leading-tight', ENTER)} style={stagger(0.4)}>
+              Safer lifts,<br className="hidden md:block" />{' '}
+              <span className="bg-gradient-to-r from-teal-300 via-cyan-200 to-teal-300 bg-[length:200%_100%] bg-clip-text text-transparent motion-safe:animate-text-sheen">
+                checked properly.
+              </span>
             </p>
-            <p className="mt-2 hidden max-w-md text-base text-slate-300 md:block">
+            <p className={cn('mt-2 hidden max-w-md text-base text-slate-300 md:block', ENTER)} style={stagger(0.55)}>
               Inspect, record defects, track contractor repairs and verify sign-off - all from your phone on site.
             </p>
           </div>
         </div>
 
         <ul className="hidden space-y-4 md:block">
-          {HIGHLIGHTS.map(({ Icon, title, text }) => (
-            <li key={title} className="flex items-start gap-3">
+          {HIGHLIGHTS.map(({ Icon, title, text }, i) => (
+            <li key={title} className={cn('flex items-start gap-3', ENTER)} style={stagger(0.8 + i * 0.15)}>
               <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10">
                 <Icon className="h-4 w-4 text-teal-300" aria-hidden="true" />
               </span>
@@ -147,7 +155,7 @@ export default function LoginPage() {
       </section>
 
       {/* ── Form: bottom sheet on phones, panel on desktop ───────────────────── */}
-      <main className="relative flex flex-1 flex-col rounded-t-[28px] bg-white px-6 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.5)] motion-safe:animate-in motion-safe:slide-in-from-bottom-8 motion-safe:fade-in motion-safe:duration-500 md:min-h-0 md:items-center md:justify-center md:rounded-none md:px-12 md:py-12 md:shadow-none">
+      <main className="relative flex flex-1 flex-col rounded-t-[28px] bg-white px-6 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.5)] motion-safe:animate-sheet-up md:min-h-0 md:items-center md:justify-center md:rounded-none md:px-12 md:py-12 md:shadow-none">
         <div className="mx-auto mb-6 h-1.5 w-10 rounded-full bg-slate-200 md:hidden" aria-hidden="true" />
 
         <div className="w-full md:max-w-sm">
@@ -229,8 +237,14 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={formik.isSubmitting}
-              className="group h-12 w-full rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 text-base font-semibold text-white shadow-lg shadow-teal-600/25 transition hover:from-teal-700 hover:to-teal-600 active:scale-[0.99] focus-visible:ring-teal-500"
+              className="group relative h-12 w-full overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 text-base font-semibold text-white shadow-lg shadow-teal-600/25 transition hover:from-teal-700 hover:to-teal-600 hover:shadow-teal-500/40 active:scale-[0.98] focus-visible:ring-teal-500"
             >
+              {!formik.isSubmitting && (
+                <span
+                  className="pointer-events-none absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 motion-safe:opacity-100 motion-safe:animate-shimmer"
+                  aria-hidden="true"
+                />
+              )}
               {formik.isSubmitting
                 ? <><Loader2 className="animate-spin" aria-hidden="true" />Signing in...</>
                 : <>Sign in<ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></>}
