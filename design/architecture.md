@@ -4,7 +4,7 @@
 
 Diagram: [architecture-diagram.md](architecture-diagram.md). Tables: [er-diagram.md](er-diagram.md). Pages: [screens.md](screens.md).
 
-Items marked **(planned)** are not in the repo yet; everything else is installed and in use.
+Items marked **(planned)** are not in the repo yet. **(placeholder)** pages and **(stub)** functions exist from the skeleton PR with their final names and signatures, but their owner still has to build them. Everything else is installed and in use.
 
 ---
 
@@ -62,21 +62,21 @@ src/
 ├── api/             # Shared Axios instance (exists)
 ├── components/      # Shared components (exists)
 │   ├── ui/          # shadcn/ui primitives (exists: button, card, input)
-│   ├── LiftPicker.jsx       # (planned - Kwan)   search and pick a lift
-│   ├── PhotoUpload.jsx      # (planned - Jerald) photo upload used by checklist and repair evidence
-│   └── StatusBadge.jsx      # (planned - Si Qi)  defect status + overdue flag
+│   ├── PagePlaceholder.jsx  # (exists - shared) temporary body for skeleton pages
+│   ├── PhotoUpload.jsx      # (stub - Jerald)    photo upload used by checklist and repair evidence
+│   └── StatusBadge.jsx      # (exists - Si Qi)   defect status + overdue flag
 ├── context/         # AuthContext (exists)
 ├── hooks/           # useAuth (exists)
 ├── layouts/         # AppLayout - sidebar on desktop, top bar on mobile (exists)
 ├── lib/             # cn(), formatCurrency(), formatDate() (exists)
 ├── pages/
 │   ├── auth/        # Login (exists)
-│   ├── lifts/       # (planned - Kwan)   Lifts page, inspector home
-│   ├── admin/       # Admin tabs: lifts, contractors, users, import (exists as a stub - Kwan)
-│   ├── inspections/ # (planned - Kandha) checklist, history, report
-│   ├── defects/     # (planned - Si Qi)  defects by contractor
-│   ├── overview/    # (planned - Si Qi)  admin home with counts
-│   └── contractor/  # (planned - Jerald) inbox and defect detail
+│   ├── lifts/       # (placeholder - Kwan)   Lifts page, inspector home
+│   ├── admin/       # (placeholder - Kwan)   Admin tabs: lifts, contractors, users, import
+│   ├── inspections/ # (placeholder - Kandha) checklist, history, report
+│   ├── defects/     # (placeholder - Si Qi)  defects by contractor
+│   ├── overview/    # (placeholder - Si Qi)  admin home with counts
+│   └── contractor/  # (placeholder - Jerald) inbox and defect detail
 ├── router/          # ProtectedRoute, RoleRoute, NAV_ROUTES, ROLE_HOMES (exists)
 └── schemas/         # Yup schemas for forms (exists)
 ```
@@ -86,17 +86,17 @@ src/
 ```
 src/
 ├── config/          # Sequelize connection + testConnection (exists)
-├── models/          # One file per model; all associations in models/index.js (exists: User)
-├── routes/          # One router per resource, mounted under /api (exists: auth)
-├── controllers/     # req/res only (exists: auth)
+├── models/          # One file per model; all associations in models/index.js (exists: every table)
+├── routes/          # One router per owner, all mounted under /api (exists; placeholders answer 501)
+├── controllers/     # req/res only (exists: auth; owners add their own)
 ├── services/        # Business logic, no req/res (exists: userService)
 │   │                #   liftService.js        (planned - Kwan)   lift and contractor records, search
 │   │                #   importService.js      (planned - Kwan)   parse, validate and commit bulk lift imports
-│   │                #   auditService.js       (planned - Kwan)   logEvent() - writes defect_events rows
+│   │                #   auditService.js       (exists - Kwan)    logEvent() - writes defect_events rows
 │   │                #   inspectionService.js  (planned - Kandha) drafts, submit, history
-│   │                #   defectService.js      (planned - Si Qi)  createFromInspection(), transition(), due dates, overdue
+│   │                #   defectService.js      (exists - Si Qi)   createFromInspection(), transition(), due dates, overdue
 │   │                #   reportService.js      (planned - Si Qi)  filtered reports and CSV export for inspections and defects
-│   │                #   attachmentService.js  (planned - Jerald) photo storage
+│   │                #   attachmentService.js  (stub - Jerald)    photo storage
 │   │                #   signoffService.js     (planned - Jerald) contractor sign-off and inspector verification
 ├── middleware/      # authenticate (JWT) and authorise(...roles) (exists)
 ├── validators/      # Yup schemas for request bodies (exists)

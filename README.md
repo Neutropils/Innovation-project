@@ -81,6 +81,10 @@ To get a working login on a fresh database, run `npm run db:migrate` once, then 
 `npm run db:create-user -- --email <email> --name "<name>" --role <admin|inspector|contractor|member>`.
 The script prints the password once and stores only its bcrypt hash - share it privately, never commit it.
 
+For demo data (contractors, lifts, the checklist, demo logins and one defect in every status), run
+`npm run db:seed` after `db:migrate`. It is safe to run twice. The database is shared, so one person
+runs it and shares the printed demo passwords privately.
+
 ## Project structure
 
 ```

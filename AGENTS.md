@@ -59,6 +59,7 @@ Do **not** commit `.env`, run `git push` to `main`, or install global packages a
 | `backend/` | `npm run db:test` | Check database connection, list tables |
 | `backend/` | `npm run db:migrate` | Apply pending migrations to the database in `DATABASE_URL` (`-- --undo` reverts the last one) |
 | `backend/` | `npm run db:create-user -- --email <e> --name "<n>" --role <admin\|inspector\|contractor\|member>` | Create a real login account; prints a generated password (`--reset` to change an existing one) |
+| `backend/` | `npm run db:seed` | Load demo contractors, lifts, checklist, logins and one defect in every status. Safe to re-run; the database is shared, so one person runs it |
 | `frontend/` | `npm run dev` | Vite dev server, port 5173, proxies `/api` → `localhost:3000` |
 | `frontend/` | `npm run build` | Production build - must succeed (CI checks it) |
 | `frontend/` | `npm test` | Jest + React Testing Library |
@@ -136,7 +137,8 @@ design/
   - Error: `{ success: false, code: 'SOME_CODE', message: '...' }`
   - Validation failure: status 422, code `VALIDATION_ERROR`
 - **Validation:** validate every request body with a Yup schema from `src/validators` using `{ abortEarly: false, stripUnknown: true }`.
-- **Auth:** protect routes with `authenticate`; restrict by role with `authorise('admin')`. `req.user` holds `{ sub, name, email, role }`.
+- **Auth:** protect routes with `authenticate`; restrict by role with `authorise('admin')`. `req.user` holds `{ sub, name, email, role, contractorId }` (`contractorId` is the lift company of a contractor account, `null` otherwise).
+- **Cross-team code:** only the owner writes to their own tables; call the other owner's function instead (`defectService.transition()`, `createFromInspection()`, `auditService.logEvent()`, `attachmentService`). Every table, router and page route already exists from the skeleton PR - build inside your own files, and in tests `jest.mock` other people's services. Ownership table: `design/feature-dependencies.md` ("Working Independently").
 - **Models:** `underscored: true`, explicit `tableName`, snake_case columns. Register every new model and its associations in `models/index.js`.
 - **Module style:** CommonJS (`require` / `module.exports`). Don't convert to ESM.
 

@@ -59,7 +59,7 @@ flowchart LR
 | Overview | `/overview` | admin | Si Qi | admin |
 | Admin | `/admin` | admin | Kwan | - |
 
-`ROLE_HOMES` in `frontend/src/router/routes.js` changes from `/dashboard` to the "Home for" column once these pages exist.
+Every page above is routed, guarded and in the nav already (skeleton PR), and `ROLE_HOMES` in `frontend/src/router/routes.js` matches the "Home for" column. Members (self sign-up) land on `/dashboard`.
 
 ---
 
