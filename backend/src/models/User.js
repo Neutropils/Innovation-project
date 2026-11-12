@@ -18,6 +18,8 @@ const User = sequelize.define('User', {
   role:     { type: DataTypes.ENUM(...ROLES), allowNull: false, defaultValue: 'member' },
   isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   lastLoginAt: { type: DataTypes.DATE, allowNull: true },
+  // The lift company a contractor account belongs to. Null for every other role.
+  contractorId: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   tableName: 'users',
   underscored: true,

@@ -2,7 +2,7 @@
 
 **Lift Spot-Check V2 (EMS problem statement 12b)**
 
-Planned tables for the P0 and P1 features. `users` already exists; everything else is new and lands in one schema PR (see [feature-dependencies.md](feature-dependencies.md), Wave 0). Columns are snake_case, as in the migrations.
+Tables for the P0 and P1 features, created by the skeleton migration `backend/migrations/20261113000000-create-spot-check-tables.js` (see [feature-dependencies.md](feature-dependencies.md#working-independently)). Columns are snake_case, as in the migrations.
 
 > Preview in VS Code with `Ctrl+Shift+V` (needs the *Markdown Preview Mermaid Support* extension recommended in `.vscode/extensions.json`). No extension? Open the image version: [images/er-diagram.png](images/er-diagram.png).
 
@@ -44,6 +44,7 @@ erDiagram
         STRING contact_phone
         DATEONLY contract_start "P2"
         DATEONLY contract_end "P2"
+        BOOLEAN is_active
     }
 
     lifts {
@@ -79,8 +80,11 @@ erDiagram
         INTEGER id PK
         INTEGER inspection_id FK
         INTEGER checklist_item_id FK
-        ENUM result "pass, defect, na"
+        ENUM result "pass, defect, na - null while unanswered"
         TEXT note
+        TEXT defect_description "copied into defects on submit"
+        STRING defect_location
+        ENUM severity "critical, major, minor"
     }
 
     defects {
@@ -118,6 +122,7 @@ erDiagram
         INTEGER defect_id FK
         INTEGER signed_by FK
         DATE signed_at
+        STRING confirmation_text
         INTEGER verified_by FK
         DATE verified_at
         ENUM decision "approved, rejected"

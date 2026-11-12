@@ -55,7 +55,7 @@ describe('LoginPage', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'correct-horse')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Lifts' })).toBeInTheDocument()   // inspector home
     expect(api.post).toHaveBeenCalledWith('/auth/login', { email: 'i@example.com', password: 'correct-horse' })
     expect(localStorage.getItem('app_token')).toBeTruthy()
   })
@@ -90,6 +90,6 @@ describe('LoginPage', () => {
   it('redirects an already signed-in user away from the login page', async () => {
     localStorage.setItem('app_token', fakeToken({ sub: 1, name: 'A', email: 'a@example.com', role: 'admin' }))
     renderLogin()
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument())   // admin home
   })
 })
