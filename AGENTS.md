@@ -6,9 +6,11 @@ Instructions for AI coding assistants (Claude Code, GitHub Copilot, Cursor, Code
 
 ## Project Overview
 
-**Innovation project** - _<one or two sentences: what the app does and who it's for. Fill in once decided.>_
+**Innovation project** - Lift Spot-Check V2 for EM Services (problem statement 12b): a mobile-first app where EMS inspectors run lift spot-checks, defects go straight to the responsible lift company with a due date, and contractors fix and sign them off before an inspector closes them.
 
 It's a group project. Several teammates work in parallel, each owning a feature area. Keep changes focused on the task you were given and don't restructure shared code unless asked.
+
+Before building a feature, read `design/feature-dependencies.md` (who owns what, shared contracts, build order) and `design/workflow-diagram.md` (defect status rules - all status changes go through `defectService.transition()`).
 
 ---
 

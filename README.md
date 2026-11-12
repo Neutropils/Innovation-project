@@ -1,12 +1,30 @@
 # Innovation project
 
-<!-- One or two sentences on what this project does and who it's for. -->
+Lift Spot-Check V2 for EM Services (problem statement 12b): a mobile-first app where inspectors run lift spot-checks, defects go straight to the responsible lift company, and contractors fix and sign them off before an inspector closes them.
 
-## Team
+## Task Allocation
 
-| Name | GitHub | Responsibilities |
-| ---- | ------ | ---------------- |
-|      |        |                  |
+Each member owns one end-to-end slice (tables, API, pages, tests). Full breakdown, dependencies and build order: [design/feature-dependencies.md](design/feature-dependencies.md).
+
+| Member | GitHub | Scope | Features |
+| ------ | ------ | ----- | -------- |
+| Kwan | | Lift and contractor records, bulk import, security | Lift register and search, contractor register, user management, bulk lift import with validation, audit log, role-based access, seed data, deployment |
+| Kandha | | Inspection (inspector) | Digital checklist, Pass/Defect and All Pass, defect capture with photos, drafts, submission, inspection history, report and export |
+| Si Qi | | Defect management and overview (EMS) | Defect creation and assignment, due dates and severity, status rules, filters, overdue flag, defect export, overview counts |
+| Jerald | | Contractor rectification and sign-off | Contractor inbox, acknowledge, progress updates, repair evidence upload, e-sign, inspector verification and closure, sign-off history |
+| Group | | Shared infrastructure | Login, JWT and role guards (done), mobile layout |
+
+### Design docs
+
+| Doc | What it shows |
+| --- | ------------- |
+| [Workflow diagram](design/workflow-diagram.md) | Inspection to closed defect, one lane per member, and the defect status rules |
+| [Screens](design/screens.md) | Navigation map and a phone-width wireframe of every page |
+| [ER diagram](design/er-diagram.md) | Planned tables and who owns each one |
+| [Architecture diagram](design/architecture-diagram.md) | Frontend, backend, database and photo storage |
+| [Feature dependencies](design/feature-dependencies.md) | Ownership, review of the feature list, cross-team contracts, build waves, open questions for EMS |
+
+The diagrams are Mermaid. Open any of these files in VS Code and press `Ctrl+Shift+V` - accept the recommended *Markdown Preview Mermaid Support* extension the first time. GitHub renders them without any extension.
 
 ## Getting started
 
