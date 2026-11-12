@@ -1,7 +1,10 @@
 import axios from 'axios'
+import { PROTOTYPE, mockAdapter } from '@/prototype/mockApi'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  // Prototype mode answers requests in the browser - no backend needed for demos.
+  ...(PROTOTYPE && { adapter: mockAdapter }),
 })
 
 // Attach Bearer token from localStorage on every request

@@ -48,7 +48,7 @@ export default function AppLayout() {
         {/* Brand header */}
         <div className="flex items-center gap-2.5 px-5 py-[18px] bg-[#1B2336]">
           <Lightbulb className="w-4 h-4 text-teal-400 flex-shrink-0" />
-          <span className="text-sm font-semibold tracking-wide text-white">Innovation Project</span>
+          <span className="text-sm font-semibold tracking-wide text-white">Elev8</span>
         </div>
 
         {/* Nav links */}
