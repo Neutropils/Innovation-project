@@ -47,10 +47,16 @@ describe('route guards', () => {
 })
 
 describe('new roles', () => {
-  it.each(['inspector', 'contractor'])('lands a signed-in %s on the dashboard', (role) => {
+  // Role homes from design/screens.md ("Home for" column)
+  it.each([
+    ['inspector', 'Lifts'],
+    ['contractor', 'Inbox'],
+    ['admin', 'Overview'],
+    ['member', 'Dashboard'],
+  ])('lands a signed-in %s on %s', (role, heading) => {
     loginAs(role)
     renderAt('/')
-    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
   })
 
   it.each(['inspector', 'contractor'])('blocks a %s from admin pages', (role) => {

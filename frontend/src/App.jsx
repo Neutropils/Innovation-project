@@ -19,8 +19,21 @@ import LoginPage from './pages/auth/LoginPage'
 // Shared
 import DashboardPage from './pages/dashboard/DashboardPage'
 
-// Admin
+// Kwan
+import LiftsPage from './pages/lifts/LiftsPage'
 import AdminPage from './pages/admin/AdminPage'
+
+// Kandha
+import InspectionPage from './pages/inspections/InspectionPage'
+import InspectionHistoryPage from './pages/inspections/InspectionHistoryPage'
+
+// Si Qi
+import DefectsPage from './pages/defects/DefectsPage'
+import OverviewPage from './pages/overview/OverviewPage'
+
+// Jerald
+import InboxPage from './pages/contractor/InboxPage'
+import DefectDetailPage from './pages/contractor/DefectDetailPage'
 
 // Redirects authenticated users to their role's home page
 function RoleHomeRedirect() {
@@ -49,8 +62,35 @@ export default function App() {
           {/* ── All roles ──────────────────────────────────────────────────── */}
           <Route path="/dashboard" element={<DashboardPage />} />
 
+          {/* Every page in design/screens.md is routed below (skeleton PR).   */}
+          {/* Build inside your own page file - no need to edit this one.     */}
+
+          {/* ── Inspector only ─────────────────────────────────────────────── */}
+          <Route element={<RoleRoute roles={['inspector']} />}>
+            <Route path="/inspections/new" element={<InspectionPage />} />
+            <Route path="/inspections/:id" element={<InspectionPage />} />
+          </Route>
+
+          {/* ── Inspector and admin ────────────────────────────────────────── */}
+          <Route element={<RoleRoute roles={['inspector', 'admin']} />}>
+            <Route path="/lifts" element={<LiftsPage />} />
+            <Route path="/inspections" element={<InspectionHistoryPage />} />
+            <Route path="/defects" element={<DefectsPage />} />
+          </Route>
+
+          {/* ── Inspector, admin and contractor (own company only) ─────────── */}
+          <Route element={<RoleRoute roles={['inspector', 'admin', 'contractor']} />}>
+            <Route path="/defects/:id" element={<DefectDetailPage />} />
+          </Route>
+
+          {/* ── Contractor only ────────────────────────────────────────────── */}
+          <Route element={<RoleRoute roles={['contractor']} />}>
+            <Route path="/inbox" element={<InboxPage />} />
+          </Route>
+
           {/* ── Admin only ─────────────────────────────────────────────────── */}
           <Route element={<RoleRoute roles={['admin']} />}>
+            <Route path="/overview" element={<OverviewPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
 
