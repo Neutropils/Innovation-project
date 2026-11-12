@@ -9,7 +9,9 @@ function signToken(user) {
     ? process.env.JWT_SECRET
     : process.env.DEV_JWT_SECRET
   return jwt.sign(
-    { sub: user.id, name: user.name, email: user.email, role: user.role },
+    // contractorId: the lift company of a contractor account (null for other roles), so
+    // contractor routes can filter by company without another database lookup
+    { sub: user.id, name: user.name, email: user.email, role: user.role, contractorId: user.contractorId ?? null },
     secret,
     { expiresIn: '8h' }
   )

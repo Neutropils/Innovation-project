@@ -1,8 +1,9 @@
 import { ShieldCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
-// Owner: <Teammate name>
-// Features: <what this page shows> - only reachable by the admin role (see RoleRoute in App.jsx)
+// Owner: Kwan
+// Features: F04.1-F04.5 lift, contractor and user records, F05.1/F05.2/F05.5 bulk lift import
+// Wireframe: design/screens.md "Admin" - only reachable by the admin role (see RoleRoute in App.jsx)
 export default function AdminPage() {
   return (
     <div className="p-6 space-y-4">
