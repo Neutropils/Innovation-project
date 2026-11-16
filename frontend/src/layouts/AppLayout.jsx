@@ -1,14 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Lightbulb, LogOut } from 'lucide-react'
 import { useAuth } from '@/hooks'
 import { NAV_ROUTES } from '@/router/routes'
-import { Button } from '@/components/ui/button'
+import LiftLogo from '@/components/LiftLogo'
+import ProfileMenu from '@/components/ProfileMenu'
 
 const ROLE_META = {
-  admin:      { label: 'Admin',      badge: 'bg-blue-100 text-blue-700' },
-  inspector:  { label: 'Inspector',  badge: 'bg-teal-100 text-teal-700' },
-  contractor: { label: 'Contractor', badge: 'bg-amber-100 text-amber-700' },
-  member:     { label: 'Member',     badge: 'bg-slate-100 text-slate-700' },
+  admin:      { label: 'Admin',      badge: 'bg-primary/10 text-primary' },
+  inspector:  { label: 'Inspector',  badge: 'bg-secondary/30 text-foreground' },
+  contractor: { label: 'Contractor', badge: 'bg-accent/15 text-accent' },
+  member:     { label: 'Member',     badge: 'bg-muted text-muted-foreground' },
 }
 
 export default function AppLayout() {
@@ -16,7 +16,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
 
   const visibleRoutes = NAV_ROUTES.filter(r => r.roles.includes(user?.role))
-  const roleMeta = ROLE_META[user?.role] ?? { label: user?.role ?? '', badge: 'bg-gray-100 text-gray-700' }
+  const roleMeta = ROLE_META[user?.role] ?? { label: user?.role ?? '', badge: 'bg-muted text-muted-foreground' }
 
   function handleLogout() {
     logout()
@@ -26,29 +26,21 @@ export default function AppLayout() {
   return (
     <div className="flex h-[100dvh] flex-col md:flex-row bg-background overflow-hidden">
       {/* ── Mobile top bar (below md) ────────────────────────────────────────── */}
-      <header className="md:hidden flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 bg-[#1B2336] text-white">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{user?.name}</p>
-          <span className={`inline-block mt-0.5 text-xs font-medium px-2 py-0.5 rounded-full ${roleMeta.badge}`}>
-            {roleMeta.label}
-          </span>
+      <header className="md:hidden flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 border-b border-border bg-card text-foreground">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <LiftLogo className="h-8 w-8 flex-shrink-0" title="" />
+          <span className="text-base font-bold tracking-tight">Elev<span className="text-accent">8</span></span>
         </div>
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="h-11 gap-2 text-white hover:bg-white/10 hover:text-white"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign out
-        </Button>
+        {/* Sign out lives in the profile menu so it can't be tapped by mistake */}
+        <ProfileMenu user={user} roleMeta={roleMeta} onSignOut={handleLogout} />
       </header>
 
       {/* ── Sidebar (md and up) ──────────────────────────────────────────────── */}
-      <aside className="hidden md:flex w-60 flex-shrink-0 flex-col border-r border-border">
+      <aside className="hidden md:flex w-60 flex-shrink-0 flex-col border-r border-border bg-card">
         {/* Brand header */}
-        <div className="flex items-center gap-2.5 px-5 py-[18px] bg-[#1B2336]">
-          <Lightbulb className="w-4 h-4 text-teal-400 flex-shrink-0" />
-          <span className="text-sm font-semibold tracking-wide text-white">Elev8</span>
+        <div className="flex items-center gap-2.5 border-b border-border px-5 py-4">
+          <LiftLogo className="h-8 w-8 flex-shrink-0" title="" />
+          <span className="text-base font-bold tracking-tight text-foreground">Elev<span className="text-accent">8</span></span>
         </div>
 
         {/* Nav links */}
@@ -60,8 +52,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`
               }
             >
@@ -72,23 +64,8 @@ export default function AppLayout() {
         </nav>
 
         {/* User footer */}
-        <div className="px-3 py-3 border-t border-border space-y-2">
-          <div className="px-3 py-1">
-            <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            <span className={`inline-block mt-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${roleMeta.badge}`}>
-              {roleMeta.label}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </Button>
+        <div className="px-3 py-3 border-t border-border">
+          <ProfileMenu user={user} roleMeta={roleMeta} onSignOut={handleLogout} variant="full" />
         </div>
       </aside>
 
@@ -98,19 +75,26 @@ export default function AppLayout() {
       </main>
 
       {/* ── Mobile bottom nav (below md) ─────────────────────────────────────── */}
-      <nav className="md:hidden flex border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+      <nav className="md:hidden flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
         {visibleRoutes.map(({ path, label, Icon }) => (
           <NavLink
             key={path}
             to={path}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] text-xs font-medium ${
-                isActive ? 'text-foreground' : 'text-muted-foreground'
+              `relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[60px] text-xs transition-colors ${
+                isActive ? 'font-semibold text-primary dark:text-accent' : 'font-medium text-muted-foreground'
               }`
             }
           >
-            <Icon className="w-5 h-5" />
-            {label}
+            {({ isActive }) => (
+              <>
+                {isActive && <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-primary dark:bg-accent" aria-hidden="true" />}
+                <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${isActive ? 'bg-primary/15 dark:bg-accent/15' : ''}`}>
+                  <Icon className="w-5 h-5" strokeWidth={isActive ? 2.4 : 2} />
+                </span>
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
