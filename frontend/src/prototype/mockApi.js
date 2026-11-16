@@ -1,4 +1,6 @@
 import { AxiosError } from 'axios'
+import { CONTRACTORS, EMPTY_OVERVIEW, defectsCsv, overview, queryDefects } from './mockData'
+import { getScenario } from './scenario'
 
 // Prototype mode: the app runs with no backend so it can be demoed anywhere.
 // Every request made through the shared Axios instance is answered here instead of /api.
@@ -80,7 +82,28 @@ export async function mockAdapter(config) {
   const body = typeof config.data === 'string' ? JSON.parse(config.data || '{}') : (config.data ?? {})
 
   if (method === 'post' && url.endsWith('/auth/login')) return login(config, body)
-  // Lists have no demo data yet, so pages show their empty state.
-  if (method === 'get') return reply(config, 200, { success: true, data: [] })
+
+  if (method === 'get') {
+    // Demo scenario switch (DemoScenarioBar): show empty, offline and error states on demand
+    const scenario = getScenario()
+    // Offline: no response at all, like a real dropped connection (also when the browser is offline)
+    if (scenario === 'offline' || navigator.onLine === false) {
+      throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config)
+    }
+    if (scenario === 'error') return fail(config, 500, 'INTERNAL_ERROR', 'Something went wrong loading this data.')
+    const empty = scenario === 'empty'
+    const params = config.params ?? {}
+    const path = url.split('?')[0]
+
+    if (path.endsWith('/overview')) {
+      const period = params.period ?? 'month'
+      return reply(config, 200, { success: true, data: empty ? EMPTY_OVERVIEW(period) : overview(period) })
+    }
+    if (path.endsWith('/defects/export')) return reply(config, 200, empty ? defectsCsv({ status: '__none__' }) : defectsCsv(params))
+    if (path.endsWith('/contractors')) return reply(config, 200, { success: true, data: CONTRACTORS })
+    if (path.endsWith('/defects')) return reply(config, 200, { success: true, data: empty ? [] : queryDefects(params) })
+    // Other lists have no demo data yet, so pages show their empty state.
+    return reply(config, 200, { success: true, data: [] })
+  }
   return fail(config, 404, 'NOT_FOUND', 'Not available in the prototype yet.')
 }

@@ -1,4 +1,5 @@
 import { mockAdapter, DEMO_PASSWORD } from '@/prototype/mockApi'
+import { setScenario } from '@/prototype/scenario'
 
 const loginWith = (email, password) =>
   mockAdapter({ method: 'post', url: '/auth/login', data: JSON.stringify({ email, password }) })
@@ -45,5 +46,16 @@ describe('prototype mock API - login', () => {
     const { err } = await settle(loginWith('error@demo.ems', DEMO_PASSWORD))
     expect(err.response.status).toBe(500)
     expect(err.response.data.code).toBe('INTERNAL_ERROR')
+  })
+})
+
+describe('prototype mock API - demo scenarios', () => {
+  afterEach(() => sessionStorage.clear())
+
+  it('answers data requests with a network error in the Offline scenario', async () => {
+    setScenario('offline')
+    const { err } = await settle(mockAdapter({ method: 'get', url: '/overview' }))
+    expect(err.response).toBeUndefined()
+    expect(err.code).toBe('ERR_NETWORK')
   })
 })
