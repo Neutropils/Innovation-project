@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios'
-import { CONTRACTORS, EMPTY_OVERVIEW, defectsCsv, overview, queryDefects } from './mockData'
+import { EMPTY_OVERVIEW, defectsCsv, overview, queryDefects } from './mockData'
+import { registerRequest } from './registerData'
 import { getScenario } from './scenario'
 
 // Prototype mode: the app runs with no backend so it can be demoed anywhere.
@@ -83,24 +84,27 @@ export async function mockAdapter(config) {
 
   if (method === 'post' && url.endsWith('/auth/login')) return login(config, body)
 
-  if (method === 'get') {
-    // Demo scenario switch (DemoScenarioBar): show empty, offline and error states on demand
-    const scenario = getScenario()
-    // Offline: no response at all, like a real dropped connection (also when the browser is offline)
-    if (scenario === 'offline' || navigator.onLine === false) {
-      throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config)
-    }
-    if (scenario === 'error') return fail(config, 500, 'INTERNAL_ERROR', 'Something went wrong loading this data.')
-    const empty = scenario === 'empty'
-    const params = config.params ?? {}
-    const path = url.split('?')[0]
+  // Demo scenario switch (DemoScenarioBar): show empty, offline and error states on demand
+  const scenario = getScenario()
+  // Offline: no response at all, like a real dropped connection (also when the browser is offline)
+  if (scenario === 'offline' || navigator.onLine === false) {
+    throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, config)
+  }
+  if (scenario === 'error') return fail(config, 500, 'INTERNAL_ERROR', 'Something went wrong on our side.')
+  const empty = scenario === 'empty'
+  const params = config.params ?? {}
+  const path = url.split('?')[0]
 
+  // Kwan: lift register, contractors, users and bulk import (reads and saves)
+  const register = registerRequest(config, { method, path, body, empty })
+  if (register) return reply(config, register.status, register.body)
+
+  if (method === 'get') {
     if (path.endsWith('/overview')) {
       const period = params.period ?? 'month'
       return reply(config, 200, { success: true, data: empty ? EMPTY_OVERVIEW(period) : overview(period) })
     }
     if (path.endsWith('/defects/export')) return reply(config, 200, empty ? defectsCsv({ status: '__none__' }) : defectsCsv(params))
-    if (path.endsWith('/contractors')) return reply(config, 200, { success: true, data: CONTRACTORS })
     if (path.endsWith('/defects')) return reply(config, 200, { success: true, data: empty ? [] : queryDefects(params) })
     // Other lists have no demo data yet, so pages show their empty state.
     return reply(config, 200, { success: true, data: [] })
