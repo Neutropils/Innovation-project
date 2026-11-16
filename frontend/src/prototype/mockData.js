@@ -1,14 +1,15 @@
 // Prototype demo data for the EMS (admin) pages - fictional contractors, lifts and defects.
-import { matchesSearch } from '@/pages/defects/defectDisplay'
+import { matchesDates, matchesSearch } from '@/pages/defects/defectDisplay'
 
 // Dates are relative to today so the overdue flags stay realistic whenever the demo runs.
 // Shapes match the planned API (design/feature-dependencies.md "Endpoints").
 
 export const CONTRACTORS = [
-  { id: 1, name: 'Apex Lifts' },
-  { id: 2, name: 'Summit Elevators' },
-  { id: 3, name: 'Orion Lift Services' },
-  { id: 4, name: 'Meridian Vertical' },
+  // Fictional companies and contacts - demo only (.demo is not a real domain)
+  { id: 1, name: 'Apex Lifts',          contactName: 'Daniel Ong',  phone: '+65 6000 0101', email: 'service@apex-lifts.demo' },
+  { id: 2, name: 'Summit Elevators',    contactName: 'Priya Nair',  phone: '+65 6000 0202', email: 'ops@summit-elevators.demo' },
+  { id: 3, name: 'Orion Lift Services', contactName: 'Jason Lee',   phone: '+65 6000 0303', email: 'help@orion-lifts.demo' },
+  { id: 4, name: 'Meridian Vertical',   contactName: 'Mei Ling Goh', phone: '+65 6000 0404', email: 'care@meridian-vertical.demo' },
 ]
 
 // Days until due by severity - mirrors SEVERITY_DUE_DAYS placeholders (TBC with EMS)
@@ -66,10 +67,11 @@ function inPeriod(d, period) {
   return days === Infinity || d.createdAt >= day(-days)
 }
 
-// GET /api/defects?contractorId=&status=&severity=&overdue=&q=
+// GET /api/defects?contractorId=&status=&severity=&overdue=&q=&reported=&from=&to=&due=
 export function queryDefects(params = {}) {
   return DEFECTS.filter((d) =>
     matchesSearch(d, params.q) &&
+    matchesDates(d, params) &&
     (!params.contractorId || d.contractorId === Number(params.contractorId)) &&
     (!params.status || (params.status === 'active' ? d.status !== 'closed' : d.status === params.status)) &&
     (!params.severity || d.severity === params.severity) &&

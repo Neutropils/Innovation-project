@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import App from '@/App'
 import api from '@/api'
 import { CONTRACTORS, DEFECTS, EMPTY_OVERVIEW, isOverdue, overview, queryDefects } from '@/prototype/mockData'
+import { shiftIso } from '@/pages/defects/defectDisplay'
 
 // The pages call the shared Axios instance; answer from the prototype data with no delay.
 jest.mock('@/api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() } }))
@@ -158,7 +159,7 @@ describe('Defects', () => {
     renderAt('/defects')
     const apex = await screen.findByRole('region', { name: 'Apex Lifts' })
     const apexCount = DEFECTS.filter((d) => d.contractorId === 1).length
-    expect(within(apex).getAllByRole('link')).toHaveLength(apexCount)
+    expect(within(apex).getAllByRole('link', { name: /DEF-/ })).toHaveLength(apexCount)
     expect(within(apex).getByRole('link', { name: /DEF-000088/ })).toHaveAttribute('href', '/defects/88')
   })
 
@@ -297,5 +298,70 @@ describe('Expandable filters', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Clear all' }))
     expect(screen.getByRole('searchbox', { name: 'Search defects' })).toHaveValue('door')
     expect(await screen.findByText(/match your search$/)).toBeInTheDocument()
+  })
+})
+
+describe('Lift company groups', () => {
+  it('are expanded by default and fold away from their header', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    const apex = await screen.findByRole('region', { name: 'Apex Lifts' })
+    const header = within(apex).getByRole('button', { expanded: true })
+    expect(within(apex).getAllByRole('link').length).toBeGreaterThan(0)
+    await userEvent.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    expect(within(apex).queryAllByRole('link', { name: /DEF-/ })).toHaveLength(0)
+    await userEvent.click(header)
+    expect(within(apex).getAllByRole('link').length).toBeGreaterThan(0)
+  })
+
+  it('Collapse all and Expand all fold every company', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    await screen.findByRole('region', { name: 'Apex Lifts' })
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse all' }))
+    expect(screen.queryAllByRole('link', { name: /DEF-/ })).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getAllByRole('link', { name: /DEF-/ })).toHaveLength(DEFECTS.length)
+  })
+})
+
+describe('Company details', () => {
+  it('shows the company numbers and contact when expanded, and can narrow to it', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    const apex = await screen.findByRole('region', { name: 'Apex Lifts' })
+    const apexDefects = DEFECTS.filter((d) => d.contractorId === 1)
+    expect(within(apex).getByText('Daniel Ong')).toBeInTheDocument()
+    expect(within(apex).getByRole('link', { name: /Call/ })).toHaveAttribute('href', 'tel:+6560000101')
+    expect(within(apex).getByText('Active').previousSibling).toHaveTextContent(String(apexDefects.filter((d) => d.status !== 'closed').length))
+    await userEvent.click(within(apex).getByRole('button', { name: 'Show only Apex Lifts' }))
+    expect(await screen.findByText(`${apexDefects.length} defects match your filters`)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Summit Elevators' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Time range filters', () => {
+  const today = new Date().toISOString().slice(0, 10)
+
+  it('filters by when the defect was reported and by upcoming due date', () => {
+    expect(queryDefects({ reported: '7d' }).every((d) => d.createdAt >= shiftIso(today, -7))).toBe(true)
+    const dueSoon = queryDefects({ due: '7d' })
+    expect(dueSoon.every((d) => d.status !== 'closed' && d.dueDate >= today && d.dueDate <= shiftIso(today, 7))).toBe(true)
+    const range = queryDefects({ reported: 'custom', from: shiftIso(today, -10), to: shiftIso(today, -5) })
+    expect(range.every((d) => d.createdAt >= shiftIso(today, -10) && d.createdAt <= shiftIso(today, -5))).toBe(true)
+  })
+
+  it('shows From and To dates only for a custom range, with a chip for it', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    await screen.findByRole('region', { name: 'Apex Lifts' })
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Reported'), 'custom')
+    expect(screen.getByLabelText('From')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Remove filter: Reported/ })).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Due'), '7d')
+    expect(screen.getByRole('button', { name: 'Remove filter: Due in 7 days' })).toBeInTheDocument()
   })
 })

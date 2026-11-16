@@ -62,6 +62,7 @@ function Tile({ to, label, value, Icon, tone = 'primary', hint }) {
       )}
     >
       <span className={cn('pointer-events-none absolute -right-10 -top-10 -z-10 h-28 w-28 rounded-full blur-2xl', t.glow)} aria-hidden="true" />
+      <Icon className={cn('pointer-events-none absolute -bottom-4 -right-3 -z-10 h-24 w-24 opacity-[0.06]', t.value)} strokeWidth={1.5} aria-hidden="true" />
       <span className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', t.chip)}>
@@ -86,8 +87,8 @@ function CountBubble({ value, label, alert }) {
   return (
     <span
       className={cn(
-        'inline-flex h-8 min-w-[2.75rem] items-center justify-center rounded-full px-2.5 text-base font-semibold tabular-nums ring-1 ring-inset',
-        alert ? 'bg-destructive/10 text-destructive ring-destructive/25' : 'bg-muted text-foreground/80 ring-border'
+        'inline-flex h-8 min-w-[2.75rem] items-center justify-center rounded-full bg-gradient-to-b px-2.5 text-base font-bold tabular-nums ring-1 ring-inset shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-none',
+        alert ? 'from-destructive/20 to-destructive/5 text-destructive ring-destructive/30' : 'from-muted to-muted/40 text-foreground/80 ring-border'
       )}
     >
       {value}
@@ -100,9 +101,9 @@ function CountBubble({ value, label, alert }) {
 function LoadBar({ open, overdue, max }) {
   const pct = (n) => (max > 0 ? Math.max((n / max) * 100, n > 0 ? 4 : 0) : 0)
   return (
-    <span className="mt-1.5 flex h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-muted" aria-hidden="true">
-      <span className="h-full bg-destructive" style={{ width: `${pct(overdue)}%` }} />
-      <span className="h-full bg-primary/60 dark:bg-accent/70" style={{ width: `${pct(open - overdue)}%` }} />
+    <span className="mt-1.5 flex h-2 w-full max-w-[12rem] gap-0.5 overflow-hidden rounded-full bg-muted shadow-[inset_0_1px_2px_rgba(0,0,0,0.06)]" aria-hidden="true">
+      <span className="h-full rounded-full bg-gradient-to-r from-red-500 to-red-400" style={{ width: `${pct(overdue)}%` }} />
+      <span className="h-full rounded-full bg-gradient-to-r from-primary/80 to-primary/50 dark:from-accent dark:to-accent/60" style={{ width: `${pct(open - overdue)}%` }} />
     </span>
   )
 }

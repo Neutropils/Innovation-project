@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, ChevronRight, Download, FilterX, Loader2, Search, SearchX, ShieldCheck, SlidersHorizontal, Wrench, X } from 'lucide-react'
+import { AlarmClock, ArrowLeft, Building2, Filter, Mail, Phone, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, FilterX, Loader2, Search, SearchX, ShieldCheck, SlidersHorizontal, Wrench, X } from 'lucide-react'
 import api from '@/api'
 import { cn } from '@/lib/utils'
-import StatusBadge from '@/components/StatusBadge'
+import StatusBadge, { PILL } from '@/components/StatusBadge'
 import { EmptyState, ErrorState } from '@/components/StateViews'
 import { OfflineBanner, OfflineState, readSaved, saveCopy, useOfflineLoad } from '@/components/OfflineMode'
 import DemoScenarioBar, { useScenario } from '@/prototype/DemoScenarioBar'
 import PageHero, { CARD, PageShell } from '@/components/PageHero'
-import { SEVERITY_META, SEVERITY_OPTIONS, STATUS_OPTIONS, dueText, initials, matchesSearch } from './defectDisplay'
+import { DUE_OPTIONS, REPORTED_OPTIONS, SEVERITY_META, SEVERITY_OPTIONS, STATUS_OPTIONS, dueText, formatRange, initials, matchesSearch } from './defectDisplay'
+import { DueTag, SeverityPill } from './DefectPills'
 
 // Owner: Si Qi
 // Features: F02.3 grouped by contractor, F02.8 filters, F02.9 overdue, F05.4 export
@@ -16,7 +17,7 @@ import { SEVERITY_META, SEVERITY_OPTIONS, STATUS_OPTIONS, dueText, initials, mat
 // Filters and search live in the URL (?contractorId=&status=&severity=&overdue=&q=) so the Overview
 // counts can link straight to a filtered list. Each row links to /defects/<id> (Jerald's page).
 
-const FILTER_KEYS = ['contractorId', 'status', 'severity', 'overdue']
+const FILTER_KEYS = ['contractorId', 'status', 'severity', 'overdue', 'reported', 'from', 'to', 'due']
 // Search (?q=) runs on the loaded list, so it is instant and also works offline.
 
 const selectClass =
@@ -35,7 +36,6 @@ function FilterSelect({ label, value, onChange, options, allLabel }) {
 }
 
 function DefectRow({ defect }) {
-  const due = dueText(defect)
   const severity = SEVERITY_META[defect.severity]
   return (
     <li>
@@ -45,32 +45,136 @@ function DefectRow({ defect }) {
       >
         <span className={cn('absolute bottom-3 left-1.5 top-3 w-1 rounded-full', severity.strip)} aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            <span className="font-mono font-medium text-foreground/80">{defect.code}</span>
-            <span aria-hidden="true">·</span>
-            <span>{defect.liftCode} {defect.liftName}</span>
+          {/* Same four lines on every row: number + due, title, lift, pills */}
+          <span className="flex items-center justify-between gap-3">
+            <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground/80">{defect.code}</span>
+            <DueTag defect={defect} />
           </span>
-          <span className="mt-0.5 block text-sm font-semibold text-foreground">{defect.item}</span>
-          <span className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', severity.className)}>{severity.label}</span>
+          <span className="mt-1.5 block text-[15px] font-semibold leading-snug text-foreground">{defect.item}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{defect.liftCode} · {defect.liftName}</span>
+          <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <SeverityPill severity={defect.severity} />
             <StatusBadge status={defect.status} />
-            {due.text && (
-            <span
-              className={cn(
-                'text-xs font-medium',
-                due.tone === 'overdue' && 'rounded-full bg-destructive/10 px-2 py-0.5 text-destructive',
-                due.tone === 'soon' && 'text-accent',
-                (due.tone === 'normal' || due.tone === 'muted') && 'text-muted-foreground'
-              )}
-            >
-              {due.text}
-            </span>
+          </span>
+        </span>
+        <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 self-center text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </Link>
+    </li>
+  )
+}
+
+// One lift company: header toggles its defects open/closed (open by default).
+// Expanded view of one company: contact details and its numbers at a glance.
+function CompanyDetails({ contractor, list, onlyThis, showingOnlyThis }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const active = list.filter((d) => d.status !== 'closed')
+  const daysOld = (d) => Math.max(0, Math.round((new Date(`${today}T00:00:00Z`) - new Date(`${d.createdAt}T00:00:00Z`)) / 86400000))
+  const oldest = active.length ? Math.max(...active.map(daysOld)) : 0
+  const stats = [
+    { label: 'Active', value: active.length },
+    { label: 'Overdue', value: list.filter((d) => dueText(d).tone === 'overdue').length, alert: true },
+    { label: 'Critical', value: list.filter((d) => d.severity === 'critical' && d.status !== 'closed').length, alert: true },
+    { label: 'To verify', value: list.filter((d) => d.status === 'pending_verification').length, amber: true },
+  ]
+  const lifts = new Set(list.map((d) => d.liftCode)).size
+  return (
+    <div className="mx-2 mt-2 rounded-xl border border-border/70 bg-gradient-to-br from-muted/60 to-muted/20 p-3">
+      <dl className="grid grid-cols-4 gap-2">
+        {stats.map((st) => (
+          <div key={st.label} className="rounded-lg bg-card px-2 py-2 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-inset ring-border/70">
+            <dd className={cn(
+              'text-xl font-bold tabular-nums leading-none',
+              st.value > 0 && st.alert ? 'text-destructive' : st.value > 0 && st.amber ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'
+            )}>{st.value}</dd>
+            <dt className="mt-1 whitespace-nowrap text-[11px] font-medium text-muted-foreground">{st.label}</dt>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" aria-hidden="true" />{lifts} {lifts === 1 ? 'lift' : 'lifts'} with defects</span>
+        {active.length > 0 && <span>Oldest open: {oldest} {oldest === 1 ? 'day' : 'days'}</span>}
+      </p>
+      {contractor?.contactName && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/70 pt-2.5">
+          <span className="mr-auto text-sm">
+            <span className="block text-xs text-muted-foreground">Contact</span>
+            <span className="font-semibold text-foreground">{contractor.contactName}</span>
+          </span>
+          {contractor.phone && (
+            <a href={`tel:${contractor.phone.replace(/\s/g, '')}`} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-semibold text-foreground ring-1 ring-inset ring-border hover:bg-muted">
+              <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+              Call
+            </a>
+          )}
+          {contractor.email && (
+            <a href={`mailto:${contractor.email}`} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-card px-3 text-xs font-semibold text-foreground ring-1 ring-inset ring-border hover:bg-muted">
+              <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+              Email
+            </a>
+          )}
+        </div>
+      )}
+      {!showingOnlyThis && (
+        <button
+          type="button"
+          onClick={onlyThis}
+          className="mt-2.5 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 text-xs font-semibold text-primary hover:bg-primary/15 dark:text-accent"
+        >
+          <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+          Show only {contractor?.name ?? 'this company'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function CompanyGroup({ name, list, open, onToggle, contractor, onlyThis, showingOnlyThis }) {
+  const overdueCount = list.filter((d) => dueText(d).tone === 'overdue').length
+  const panelId = `company-${name.replace(/\W+/g, '-').toLowerCase()}`
+  return (
+    <section aria-label={name} className={cn(CARD, 'overflow-hidden')}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+      >
+        <span
+          className={cn(
+            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]',
+            overdueCount > 0 ? 'bg-gradient-to-br from-destructive/20 to-destructive/5 text-destructive' : 'bg-gradient-to-br from-primary/20 to-primary/5 text-primary dark:text-accent'
+          )}
+          aria-hidden="true"
+        >
+          {initials(name)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-semibold leading-tight text-foreground">{name}</span>
+          <span className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+            <span>{list.length} {list.length === 1 ? 'defect' : 'defects'}</span>
+            {overdueCount > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-destructive">
+                  <AlarmClock className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                  {overdueCount} overdue
+                </span>
+              </>
             )}
           </span>
         </span>
-        <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-      </Link>
-    </li>
+        <ChevronDown className={cn('h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-180')} aria-hidden="true" />
+      </button>
+      {open && (
+        <div id={panelId} className="border-t border-border/70 pb-1 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
+          <CompanyDetails contractor={contractor} list={list} onlyThis={onlyThis} showingOnlyThis={showingOnlyThis} />
+          <ul className="divide-y divide-border/70 px-2">
+            {list.map((d) => <DefectRow key={d.id} defect={d} />)}
+          </ul>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -118,6 +222,8 @@ export default function DefectsPage() {
 
   const [contractors, setContractors] = useState([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  // Lift companies the admin has folded away; all open by default
+  const [collapsed, setCollapsed] = useState(() => new Set())
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
 
@@ -158,6 +264,11 @@ export default function DefectsPage() {
     filters.status && { key: 'status', label: optionLabel(STATUS_OPTIONS, filters.status) },
     filters.severity && { key: 'severity', label: optionLabel(SEVERITY_OPTIONS, filters.severity) },
     filters.overdue === 'true' && { key: 'overdue', label: 'Overdue only' },
+    filters.reported && {
+      key: 'reported',
+      label: filters.reported === 'custom' ? `Reported ${formatRange(filters.from, filters.to)}` : `Reported: ${optionLabel(REPORTED_OPTIONS, filters.reported).toLowerCase()}`,
+    },
+    filters.due && { key: 'due', label: optionLabel(DUE_OPTIONS, filters.due) },
   ].filter(Boolean)
 
   // Clears the filters but keeps the search
@@ -169,6 +280,11 @@ export default function DefectsPage() {
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value)
     else next.delete(key)
+    // The From/To dates only apply to a custom reported range
+    if (key === 'reported' && value !== 'custom') {
+      next.delete('from')
+      next.delete('to')
+    }
     setSearchParams(next, { replace: true })
   }
 
@@ -271,20 +387,21 @@ export default function DefectsPage() {
           )}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          Filters
+          {/* Icon + count on narrow phones so the search box keeps its room */}
+          <span className="sr-only sm:not-sr-only">Filters</span>
           {chips.length > 0 && (
             <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold tabular-nums text-primary-foreground">
               {chips.length}
             </span>
           )}
-          <ChevronDown className={cn('h-4 w-4 transition-transform', filtersOpen && 'rotate-180')} aria-hidden="true" />
+          <ChevronDown className={cn('hidden h-4 w-4 transition-transform sm:block', filtersOpen && 'rotate-180')} aria-hidden="true" />
         </button>
         </div>
 
         {filtersOpen && (
           <div
             id="defect-filters"
-            className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 md:grid-cols-[1fr_1fr_1fr_auto] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1"
+            className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 md:grid-cols-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1"
           >
             <div className="col-span-2 md:col-span-1">
               <FilterSelect
@@ -297,6 +414,20 @@ export default function DefectsPage() {
             </div>
             <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilter('status', v)} allLabel="All statuses" options={STATUS_OPTIONS} />
             <FilterSelect label="Severity" value={filters.severity} onChange={(v) => setFilter('severity', v)} allLabel="All severities" options={SEVERITY_OPTIONS} />
+            <FilterSelect label="Reported" value={filters.reported} onChange={(v) => setFilter('reported', v)} allLabel="Any time" options={REPORTED_OPTIONS} />
+            <FilterSelect label="Due" value={filters.due} onChange={(v) => setFilter('due', v)} allLabel="Any due date" options={DUE_OPTIONS} />
+            {filters.reported === 'custom' && (
+              <>
+                <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                  From
+                  <input type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => setFilter('from', e.target.value)} className={selectClass} />
+                </label>
+                <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">
+                  To
+                  <input type="date" value={filters.to} min={filters.from || undefined} onChange={(e) => setFilter('to', e.target.value)} className={selectClass} />
+                </label>
+              </>
+            )}
             <div className="col-span-2 flex items-end md:col-span-1">
               <button
                 type="button"
@@ -401,37 +532,51 @@ export default function DefectsPage() {
       )}
 
       {state.status === 'ready' && total > 0 && (
-        <div className="space-y-4">
-          {groups.map(([name, list]) => {
-            const overdueCount = list.filter((d) => dueText(d).tone === 'overdue').length
-            return (
-            <section key={name} aria-label={name} className={cn(CARD, "p-2")}>
-              <div className="flex items-center gap-3 border-b border-border/70 px-3 pb-3 pt-2">
-                <span
-                  className={cn(
-                    'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold',
-                    overdueCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary dark:text-accent'
-                  )}
-                  aria-hidden="true"
-                >
-                  {initials(name)}
-                </span>
-                <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{name}</h2>
-                {overdueCount > 0 && (
-                  <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-destructive ring-1 ring-inset ring-destructive/20">
-                    {overdueCount} overdue
-                  </span>
-                )}
-                <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">{list.length}</span>
-              </div>
-              <ul className="divide-y divide-border/70">
-                {list.map((d) => <DefectRow key={d.id} defect={d} />)}
-              </ul>
-            </section>
-            )
-          })}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs font-medium text-muted-foreground">
+              {groups.length} lift {groups.length === 1 ? 'company' : 'companies'}
+            </p>
+            {collapsed.size < groups.length ? (
+              <button
+                type="button"
+                onClick={() => setCollapsed(new Set(groups.map(([name]) => name)))}
+                className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden="true" />
+                Collapse all
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCollapsed(new Set())}
+                className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                Expand all
+              </button>
+            )}
+          </div>
+          {groups.map(([name, list]) => (
+            <CompanyGroup
+              key={name}
+              name={name}
+              list={list}
+              open={!collapsed.has(name)}
+              contractor={contractors.find((c) => c.name === name) ?? { name, id: list[0].contractorId }}
+              showingOnlyThis={filters.contractorId === String(list[0].contractorId)}
+              onlyThis={() => setFilter('contractorId', String(list[0].contractorId))}
+              onToggle={() => setCollapsed((prev) => {
+                const next = new Set(prev)
+                if (next.has(name)) next.delete(name)
+                else next.add(name)
+                return next
+              })}
+            />
+          ))}
         </div>
       )}
+
       {/* Prototype-only demo controls, kept out of the way at the bottom */}
       <DemoScenarioBar className="bg-card/70 backdrop-blur" />
     </PageShell>

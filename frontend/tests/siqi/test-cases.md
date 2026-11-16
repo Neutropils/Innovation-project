@@ -36,3 +36,8 @@
 | 32 | adminPages.test.jsx | Filters panel | Starts collapsed; the Filters button expands it to show the dropdowns |
 | 33 | adminPages.test.jsx | Active filters while collapsed | Filters button shows the count; each filter is a chip that removes itself |
 | 34 | adminPages.test.jsx | Clear all | Removes every filter but keeps the search term |
+| 35 | adminPages.test.jsx | Lift company group header | Expanded by default; tapping the header folds and unfolds its defects |
+| 36 | adminPages.test.jsx | Collapse all / Expand all | Hides every defect, then shows them all again |
+| 37 | adminPages.test.jsx | Expanded company view | Shows contact (Call/Email), active / overdue / critical / to-verify counts, and "Show only" narrows the list to that company |
+| 38 | adminPages.test.jsx | Reported and Due time ranges | Last 7 days, due within 7 days and a custom From/To range each return only matching defects |
+| 39 | adminPages.test.jsx | Custom reported range in the panel | From/To appear only for "Custom range"; Reported and Due filters show as chips |
