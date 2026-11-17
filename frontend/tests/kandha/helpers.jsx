@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { render } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
@@ -17,9 +18,9 @@ function LocationProbe() {
   return <p data-testid="location">{location.pathname + location.search}</p>
 }
 
-export function renderAt(path, role = 'inspector') {
+export function renderAt(path, role = 'inspector', { strict = false } = {}) {
   localStorage.setItem('app_token', `x.${btoa(JSON.stringify(ACCOUNTS[role]))}.x`)
-  return render(
+  const tree = (
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
         <App />
@@ -27,6 +28,8 @@ export function renderAt(path, role = 'inspector') {
       </AuthProvider>
     </MemoryRouter>
   )
+  // The real app runs inside <StrictMode> (main.jsx), which runs effects twice in development
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree)
 }
 
 // Three checklist items in two sections - enough to test per-section behaviour

@@ -106,6 +106,38 @@ describe('createOrGetDraft', () => {
     expect(Inspection.create).toHaveBeenCalledWith({ liftId: 3, inspectorId: 10, status: 'draft' })
   })
 
+  it('two simultaneous starts for the same lift create ONE draft (double tap, or the page loading twice)', async () => {
+    const tick = () => new Promise((resolve) => setImmediate(resolve))
+    const drafts = []
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockImplementation(async () => { await tick(); return drafts[0] ?? null })
+    Inspection.create.mockImplementation(async (values) => { await tick(); const row = { id: 8 + drafts.length, ...values }; drafts.push(row); return row })
+    Inspection.findByPk.mockImplementation(async (id) => inspectionRow({ id }))
+
+    const [a, b] = await Promise.all([service.createOrGetDraft(inspector, 3), service.createOrGetDraft(inspector, 3)])
+    expect(Inspection.create).toHaveBeenCalledTimes(1)
+    expect([a.created, b.created].sort()).toEqual([false, true])
+    expect(a.inspection.id).toBe(b.inspection.id)
+  })
+
+  it('does not hold up a different lift or a different inspector', async () => {
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockResolvedValue(null)
+    Inspection.create.mockImplementation(async (values) => ({ id: values.liftId * 100 + values.inspectorId }))
+    Inspection.findByPk.mockImplementation(async (id) => inspectionRow({ id, inspectorId: id % 100 }))
+    await Promise.all([service.createOrGetDraft(inspector, 3), service.createOrGetDraft(inspector, 4), service.createOrGetDraft(otherInspector, 3)])
+    expect(Inspection.create).toHaveBeenCalledTimes(3)
+  })
+
+  it('a failed start does not block the next one', async () => {
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockResolvedValue(null)
+    Inspection.create.mockRejectedValueOnce(new Error('db down')).mockResolvedValue({ id: 8 })
+    Inspection.findByPk.mockResolvedValue(inspectionRow({ id: 8 }))
+    await expect(service.createOrGetDraft(inspector, 3)).rejects.toThrow('db down')
+    await expect(service.createOrGetDraft(inspector, 3)).resolves.toMatchObject({ created: true })
+  })
+
   it.each([[null], [{ id: 3, isActive: false }]])('answers 404 for a missing or deactivated lift (%j)', async (lift) => {
     Lift.findByPk.mockResolvedValue(lift)
     await expect(service.createOrGetDraft(inspector, 3)).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' })
@@ -160,6 +192,17 @@ describe('saveResults (F01.4, F01.6, F01.9)', () => {
     ])
     expect(InspectionResult.create).toHaveBeenCalledWith(expect.objectContaining({ inspectionId: 7, checklistItemId: 1, result: 'pass' }), { transaction: mockTx })
     expect(existing.update).toHaveBeenCalledWith(expect.objectContaining({ result: 'pass' }), { transaction: mockTx })
+  })
+
+  it('saving the same item twice updates the one row, never a duplicate', async () => {
+    const row = { update: jest.fn() }
+    InspectionResult.findOne.mockResolvedValueOnce(null).mockResolvedValue(row)
+    await service.saveResults(inspector, 7, [{ checklistItemId: 1, result: 'pass' }])
+    await service.saveResults(inspector, 7, [{ checklistItemId: 1, result: 'defect', description: 'Noisy', severity: 'minor' }])
+    expect(InspectionResult.create).toHaveBeenCalledTimes(1)
+    expect(row.update).toHaveBeenCalledTimes(1)
+    // Every lookup is by (inspection, item), the pair the upsert is keyed on
+    expect(InspectionResult.findOne.mock.calls.every(([o]) => o.where.inspectionId === 7 && o.where.checklistItemId === 1)).toBe(true)
   })
 
   it('accepts a partial save (one answer, rest still blank)', async () => {
@@ -260,6 +303,15 @@ describe('submit (F01.8, F01.10)', () => {
     expect(sequelize.transaction).toHaveBeenCalledTimes(1)
     expect(row.update.mock.calls[0][1].transaction).toBe(mockTx)
     expect(defectService.createFromInspection.mock.calls[0][1].transaction).toBe(mockTx)
+  })
+
+  it('never sets the inspector from anything but the draft owner checked against the login', async () => {
+    const row = inspectionRow({ inspectorId: 10 })
+    Inspection.findByPk.mockResolvedValue(row)
+    InspectionResult.findAll.mockResolvedValue(allAnswered)
+    await service.submit({ ...inspector, sub: 10 }, 7)
+    expect(row.update.mock.calls[0][0]).not.toHaveProperty('inspectorId')
+    expect(row.inspectorId).toBe(10)
   })
 
   it('answers 409 on a second submit and creates no more defects', async () => {

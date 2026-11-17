@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, Check, CheckCircle2, ClipboardCheck, Download, MapPin } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, ClipboardCheck, Download, ExternalLink, MapPin } from 'lucide-react'
 import api from '@/api'
 import { cn } from '@/lib/utils'
 import PageHero, { CARD, PageShell } from '@/components/PageHero'
@@ -106,7 +106,8 @@ export default function InspectionReport({ detail, justSubmitted, backTo = '/ins
                 {lift.address}
                 <a href={mapsUrl(lift)} target="_blank" rel="noreferrer" className="ml-2 inline-flex min-h-[44px] items-center gap-1 font-medium text-primary underline-offset-2 hover:underline dark:text-accent">
                   <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                  Find in map ↗
+                  Find in map
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
                 </a>
               </dd>
             </div>

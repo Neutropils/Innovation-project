@@ -141,6 +141,44 @@ describe('GET /api/inspections/export', () => {
   })
 })
 
+describe('admin is read-only on inspections', () => {
+  it('can read the list, a detail and the export', async () => {
+    inspectionService.listInspections.mockResolvedValue([])
+    inspectionService.getInspection.mockResolvedValue({ id: 7, displayId: 'INS-000007' })
+    inspectionService.exportCsv.mockResolvedValue({ csv: 'a', count: 0 })
+    expect((await request(app).get('/api/inspections').set(as('admin'))).status).toBe(200)
+    expect((await request(app).get('/api/inspections/7').set(as('admin'))).status).toBe(200)
+    expect((await request(app).get('/api/inspections/export').set(as('admin'))).status).toBe(200)
+  })
+
+  it('cannot start, save or submit - and the service is never reached', async () => {
+    const results = { results: [{ checklistItemId: 1, result: 'pass' }] }
+    expect((await request(app).post('/api/inspections').set(as('admin')).send({ liftId: 1 })).status).toBe(403)
+    expect((await request(app).put('/api/inspections/7/results').set(as('admin')).send(results)).status).toBe(403)
+    expect((await request(app).post('/api/inspections/7/submit').set(as('admin'))).status).toBe(403)
+    expect(inspectionService.createOrGetDraft).not.toHaveBeenCalled()
+    expect(inspectionService.saveResults).not.toHaveBeenCalled()
+    expect(inspectionService.submit).not.toHaveBeenCalled()
+  })
+})
+
+describe('inspector ID in the request is ignored', () => {
+  it('PUT results strips an inspectorId / status / submittedAt sent in the body', async () => {
+    inspectionService.saveResults.mockResolvedValue({ id: 7 })
+    await request(app).put('/api/inspections/7/results').set(as('inspector', 42))
+      .send({ inspectorId: 999, status: 'submitted', submittedAt: '2020-01-01', results: [{ checklistItemId: 1, result: 'pass', inspectorId: 999 }] })
+    const [user, , results] = inspectionService.saveResults.mock.calls[0]
+    expect(user.sub).toBe(42)
+    expect(results[0]).not.toHaveProperty('inspectorId')
+  })
+
+  it('submit takes only the id from the URL and the user from the token', async () => {
+    inspectionService.submit.mockResolvedValue({ id: 7 })
+    await request(app).post('/api/inspections/7/submit').set(as('inspector', 42)).send({ inspectorId: 999, submittedAt: '2020-01-01' })
+    expect(inspectionService.submit).toHaveBeenCalledWith(expect.objectContaining({ sub: 42 }), 7)
+  })
+})
+
 describe('GET /api/inspections/:id', () => {
   it('returns the inspection for the caller', async () => {
     inspectionService.getInspection.mockResolvedValue({ id: 7, displayId: 'INS-000007' })

@@ -262,6 +262,13 @@ describe('Starting a draft', () => {
     expect(api.get).not.toHaveBeenCalledWith('/inspections/7') // already loaded, not fetched twice
   })
 
+  it('starts only ONE draft even though React StrictMode runs the effect twice', async () => {
+    serveApi(api, { 'POST /inspections': ok(makeDetail()), 'GET /checklist-items': ok([], { meta: META }) })
+    renderAt('/inspections/new?liftId=3', 'inspector', { strict: true })
+    expect(await screen.findByRole('heading', { name: 'LIFT-0427' })).toBeInTheDocument()
+    expect(api.post.mock.calls.filter(([url]) => url === '/inspections')).toHaveLength(1)
+  })
+
   it('asks for a lift when none was chosen', async () => {
     renderAt('/inspections/new')
     expect(await screen.findByText('Choose a lift to inspect')).toBeInTheDocument()

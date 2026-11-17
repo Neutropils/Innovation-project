@@ -145,20 +145,37 @@ async function loadDetail(id, user) {
 
 // ─── Starting a draft (F01.8) ─────────────────────────────────────────────────
 
+// Two "start" requests for the same inspector and lift can arrive together (a double-tap, or the
+// page loading twice). Without this, both would find no draft and each create one. Requests
+// with the same key run one after another, so the second finds the first one's draft.
+// (Covers one server process; a unique index on open drafts would cover several.)
+const draftLocks = new Map()
+function withDraftLock(key, fn) {
+  const previous = draftLocks.get(key) ?? Promise.resolve()
+  const run = previous.then(fn)
+  const tail = run.then(() => {}, () => {}).then(() => {
+    if (draftLocks.get(key) === tail) draftLocks.delete(key)
+  })
+  draftLocks.set(key, tail)
+  return run
+}
+
 // One open draft per inspector per lift: starting again just reopens it.
 async function createOrGetDraft(user, liftId) {
   const lift = await Lift.findByPk(liftId)
   if (!lift || lift.isActive === false) throw appError(404, 'NOT_FOUND', 'Lift not found')
 
-  const existing = await Inspection.findOne({
-    where: { liftId, inspectorId: user.sub, status: 'draft' },
-    order: [['id', 'DESC']],
+  const { created, id } = await withDraftLock(`${user.sub}:${liftId}`, async () => {
+    const existing = await Inspection.findOne({
+      where: { liftId, inspectorId: user.sub, status: 'draft' },
+      order: [['id', 'DESC']],
+    })
+    if (existing) return { created: false, id: existing.id }
+    // The inspector always comes from the login, never from the request body
+    const draft = await Inspection.create({ liftId, inspectorId: user.sub, status: 'draft' })
+    return { created: true, id: draft.id }
   })
-  if (existing) return { created: false, inspection: await loadDetail(existing.id, user) }
-
-  // The inspector always comes from the login, never from the request body
-  const draft = await Inspection.create({ liftId, inspectorId: user.sub, status: 'draft' })
-  return { created: true, inspection: await loadDetail(draft.id, user) }
+  return { created, inspection: await loadDetail(id, user) }
 }
 
 // ─── Saving answers (F01.4, F01.6, F01.9) ─────────────────────────────────────

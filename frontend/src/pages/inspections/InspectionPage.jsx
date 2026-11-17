@@ -13,6 +13,16 @@ import { ACTION_OUTLINE, ACTION_PRIMARY, errorMessage, isOffline } from './inspe
 //   /inspections/<id>             a draft shows the checklist; a submitted inspection goes to its report
 //                                 (/inspections?report=<id>, on the history page)
 
+// Starting a draft must happen once: in development React runs effects twice, and a double
+// tap would do the same. Calls for the same lift while one is in flight share its request.
+const startsInFlight = new Map()
+function startDraft(liftId) {
+  if (!startsInFlight.has(liftId)) {
+    startsInFlight.set(liftId, api.post('/inspections', { liftId }).finally(() => startsInFlight.delete(liftId)))
+  }
+  return startsInFlight.get(liftId)
+}
+
 function Loading() {
   return (
     <PageShell>
@@ -44,7 +54,7 @@ export default function InspectionPage() {
     setState({ status: 'loading', detail: null, error: null })
     try {
       // New: POST returns this inspector's existing draft for the lift, or starts one
-      const res = id ? await api.get(`/inspections/${id}`) : await api.post('/inspections', { liftId: Number(liftId) })
+      const res = id ? await api.get(`/inspections/${id}`) : await startDraft(Number(liftId))
       const detail = res.data.data
       loadedId.current = detail.id
       setState({ status: 'ready', detail, error: null })
