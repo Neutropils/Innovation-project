@@ -26,14 +26,7 @@ const PLACEHOLDERS = [
   ['get', '/api/users', 'admin', 'inspector'],
   ['post', '/api/users', 'admin', 'inspector'],
   ['patch', '/api/users/1', 'admin', 'contractor'],
-  // Kandha
-  ['get', '/api/checklist-items', 'inspector', 'contractor'],
-  ['get', '/api/inspections', 'inspector', 'contractor'],
-  ['get', '/api/inspections/export', 'admin', 'contractor'],
-  ['post', '/api/inspections', 'inspector', 'admin'],
-  ['get', '/api/inspections/1', 'inspector', 'member'],
-  ['put', '/api/inspections/1/results', 'inspector', 'admin'],
-  ['post', '/api/inspections/1/submit', 'inspector', 'contractor'],
+  // Kandha - built; tested in tests/kandha/
   // Si Qi
   ['get', '/api/defects', 'admin', 'contractor'],
   ['get', '/api/defects/export', 'inspector', 'contractor'],
