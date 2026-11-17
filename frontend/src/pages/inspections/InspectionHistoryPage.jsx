@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks'
 import PageHero, { CARD, PageShell } from '@/components/PageHero'
 import { EmptyState, ErrorState } from '@/components/StateViews'
-import LiftPickerDialog from './LiftPickerDialog'
+import ReportView from './ReportView'
 import {
   ACTION_OUTLINE, ACTION_PRIMARY, FIELD, downloadInspectionsCsv, errorMessage, filterParams, formatDay, formatDayTime, plural,
 } from './inspectionDisplay'
@@ -17,6 +17,8 @@ import {
 //
 // Filters live in the URL query string (?tab=&liftId=&from=&to=&result=) so Back keeps them.
 // Inspectors get a Drafts tab (their own unsent inspections); admins only see submitted ones.
+// A report is a view on this same route: /inspections?report=<id> replaces the list, and the
+// filters stay in the URL so "Back to inspections" returns to the same filtered list.
 
 const RESULT_OPTIONS = [
   { value: '', label: 'Any result' },
@@ -50,9 +52,10 @@ function ListSkeleton() {
 }
 
 // One list (submitted or drafts): a table from md up, stacked cards on a phone
-function InspectionList({ rows, drafts }) {
+function InspectionList({ rows, drafts, reportHref }) {
   const navigate = useNavigate()
-  const open = (r) => navigate(`/inspections/${r.id}`)
+  const hrefFor = (r) => (drafts ? `/inspections/${r.id}` : reportHref(r.id))
+  const open = (r) => navigate(hrefFor(r))
   return (
     <>
       <div className={cn(CARD, 'hidden overflow-x-auto md:block')}>
@@ -72,7 +75,7 @@ function InspectionList({ rows, drafts }) {
             {rows.map((r) => (
               <tr key={r.id} onClick={() => open(r)} className="cursor-pointer hover:bg-muted/40">
                 <td className="px-4 py-3">
-                  <Link to={`/inspections/${r.id}`} onClick={(e) => e.stopPropagation()} className="inline-flex min-h-[44px] items-center font-mono font-medium text-primary underline-offset-2 hover:underline dark:text-accent">{r.displayId}</Link>
+                  <Link to={hrefFor(r)} onClick={(e) => e.stopPropagation()} className="inline-flex min-h-[44px] items-center font-mono font-medium text-primary underline-offset-2 hover:underline dark:text-accent">{r.displayId}</Link>
                 </td>
                 <td className="px-4 py-3"><span className="font-medium text-foreground">{r.liftCode}</span><span className="block text-xs text-muted-foreground">{r.address}</span></td>
                 <td className="px-4 py-3">{r.contractorName ?? '-'}</td>
@@ -81,7 +84,7 @@ function InspectionList({ rows, drafts }) {
                 <td className="px-4 py-3">{drafts ? `${r.answeredCount}/${r.totalItems} answered` : <ResultPill inspection={r} />}</td>
                 {drafts && (
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/inspections/${r.id}`} onClick={(e) => e.stopPropagation()} className={cn(ACTION_PRIMARY, 'h-11')}>Continue</Link>
+                    <Link to={hrefFor(r)} onClick={(e) => e.stopPropagation()} className={cn(ACTION_PRIMARY, 'h-11')}>Continue</Link>
                   </td>
                 )}
               </tr>
@@ -93,7 +96,7 @@ function InspectionList({ rows, drafts }) {
       <ul className="space-y-3 md:hidden">
         {rows.map((r) => (
           <li key={r.id}>
-            <Link to={`/inspections/${r.id}`} className={cn(CARD, 'block p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+            <Link to={hrefFor(r)} className={cn(CARD, 'block p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-sm font-semibold text-primary dark:text-accent">{r.displayId}</span>
                 {drafts ? <span className="text-xs font-semibold text-muted-foreground">{r.answeredCount}/{r.totalItems} answered</span> : <ResultPill inspection={r} />}
@@ -118,7 +121,19 @@ function InspectionList({ rows, drafts }) {
   )
 }
 
+// The page: a report when ?report= is set, otherwise the history list
 export default function InspectionHistoryPage() {
+  const [searchParams] = useSearchParams()
+  const reportId = searchParams.get('report')
+  if (!reportId) return <HistoryList />
+  const back = new URLSearchParams(searchParams)
+  back.delete('report')
+  back.delete('submitted')
+  const query = back.toString()
+  return <ReportView key={reportId} id={reportId} backTo={`/inspections${query ? `?${query}` : ''}`} justSubmitted={searchParams.get('submitted') === '1'} />
+}
+
+function HistoryList() {
   const { user } = useAuth()
   const isInspector = user?.role === 'inspector'
   const [searchParams, setSearchParams] = useSearchParams()
@@ -134,7 +149,6 @@ export default function InspectionHistoryPage() {
   const [submitted, setSubmitted] = useState({ status: 'loading', rows: [] })
   const [drafts, setDrafts] = useState({ status: 'loading', rows: [] })
   const [lifts, setLifts] = useState([])
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
 
@@ -184,6 +198,12 @@ export default function InspectionHistoryPage() {
     }
   }
 
+  const reportHref = (id) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('report', id)
+    return `/inspections?${next.toString()}`
+  }
+
   const liftOptions = lifts.filter((l) => l.isActive !== false)
   const draftCount = drafts.rows.length
 
@@ -199,10 +219,10 @@ export default function InspectionHistoryPage() {
         eyebrow={isInspector ? 'Spot-checks' : 'Inspection records'}
         title="Inspections"
         actions={isInspector && (
-          <button type="button" onClick={() => setPickerOpen(true)} className={ACTION_PRIMARY}>
+          <Link to="/lifts" className={ACTION_PRIMARY}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             New inspection
-          </button>
+          </Link>
         )}
       >
         <p aria-live="polite">
@@ -281,12 +301,12 @@ export default function InspectionHistoryPage() {
                 <EmptyState
                   Icon={ClipboardCheck}
                   title="No inspections yet"
-                  message={isInspector ? 'Start one from New inspection. Submitted spot-checks appear here.' : 'Submitted spot-checks appear here once inspectors send them in.'}
-                  action={isInspector && <button type="button" onClick={() => setPickerOpen(true)} className={ACTION_PRIMARY}><Plus className="h-4 w-4" aria-hidden="true" />New inspection</button>}
+                  message={isInspector ? 'Start one from Lifts. Submitted spot-checks appear here.' : 'Submitted spot-checks appear here once inspectors send them in.'}
+                  action={isInspector && <Link to="/lifts" className={ACTION_PRIMARY}><Plus className="h-4 w-4" aria-hidden="true" />Go to Lifts</Link>}
                 />
               )
             )}
-            {submitted.status === 'ready' && submitted.rows.length > 0 && <InspectionList rows={submitted.rows} drafts={false} />}
+            {submitted.status === 'ready' && submitted.rows.length > 0 && <InspectionList rows={submitted.rows} drafts={false} reportHref={reportHref} />}
           </>
         )}
 
@@ -299,7 +319,7 @@ export default function InspectionHistoryPage() {
                 Icon={ClipboardCheck}
                 title="No drafts"
                 message="An inspection you start and don’t finish is kept here, so you can carry on later."
-                action={<button type="button" onClick={() => setPickerOpen(true)} className={ACTION_PRIMARY}><Plus className="h-4 w-4" aria-hidden="true" />New inspection</button>}
+                action={<Link to="/lifts" className={ACTION_PRIMARY}><Plus className="h-4 w-4" aria-hidden="true" />Go to Lifts</Link>}
               />
             )}
             {drafts.status === 'ready' && drafts.rows.length > 0 && <InspectionList rows={drafts.rows} drafts />}
@@ -307,7 +327,6 @@ export default function InspectionHistoryPage() {
         )}
       </div>
 
-      {pickerOpen && <LiftPickerDialog onClose={() => setPickerOpen(false)} />}
     </PageShell>
   )
 }

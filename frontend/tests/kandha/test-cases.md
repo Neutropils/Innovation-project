@@ -1,6 +1,6 @@
 # Frontend Test Cases - Kandha
 
-Inspection pages: hub (`/inspections`), checklist (`/inspections/new`, `/inspections/:id` while a draft) and report (`/inspections/:id` once submitted). The Axios instance (`@/api`) is mocked in every file, so no backend is needed.
+Inspection pages: history (`/inspections`), report (a view on the same route, `/inspections?report=<id>`) and checklist (`/inspections/new`, `/inspections/:id`). The Axios instance (`@/api`) is mocked in every file, so no backend is needed.
 
 | # | Test File | What is Tested | Expected Outcome |
 |---|-----------|---------------|-----------------|
@@ -14,13 +14,13 @@ Inspection pages: hub (`/inspections`), checklist (`/inspections/new`, `/inspect
 | 8 | checklistPage.test.jsx | Defect capture | Fields open under the item; location prefilled with the section; due-date preview after choosing a severity; photo button present |
 | 9 | checklistPage.test.jsx | Autosave | Changed answers PUT about 1s after the last change; "Saved hh:mm"; a failed save shows "Not saved - retry" and retries |
 | 10 | checklistPage.test.jsx | Submit blocked | Names unanswered items and incomplete defects, outlines them, does not call the API |
-| 11 | checklistPage.test.jsx | Submit success | Saves first, then submits; report shows "Submitted · 1 defect sent to <contractor>" and a link to the defect |
+| 11 | checklistPage.test.jsx | Submit success | Saves first, then submits; lands on `/inspections?report=<id>&submitted=1` with "Submitted · 1 defect sent to <contractor>" and a link to the defect |
 | 12 | checklistPage.test.jsx | Server 422 and offline | Server-named items are outlined (until touched); a connection failure keeps the draft and shows a message |
-| 13 | checklistPage.test.jsx | Starting a draft | `/inspections/new?liftId=` POSTs once, moves to `/inspections/:id`; no lift asks for one; 404 and 500 have their own states |
-| 14 | historyPage.test.jsx | Hub as inspector | New inspection button, Drafts (n) tab, submitted list, draft progress and Continue link, empty states |
+| 13 | checklistPage.test.jsx | Already submitted | `/inspections/<id>` of a submitted inspection redirects to `/inspections?report=<id>` |
+| 13b | checklistPage.test.jsx | Starting a draft | `/inspections/new?liftId=` POSTs once, moves to `/inspections/:id`; no lift asks for one; 404 and 500 have their own states |
+| 14 | historyPage.test.jsx | History as inspector | New inspection is a link to `/lifts`, Drafts (n) tab, submitted list, draft progress and Continue link, empty states |
 | 15 | historyPage.test.jsx | Hub as admin | No New inspection button, no Drafts tab, drafts never requested |
 | 16 | historyPage.test.jsx | Filters | Read from the URL, written to the URL, sent to the API, cleared; empty filtered list offers to clear |
 | 17 | historyPage.test.jsx | Export CSV | Sends the filters; label shows the count; disabled at 0; error shown when it fails |
-| 18 | historyPage.test.jsx | Lift picker | Searches the register, narrows by typing, skips deactivated lifts, Escape closes, choosing a lift starts the checklist |
-| 19 | historyPage.test.jsx | Report | Admin and inspector can open it; header, counts, defects with StatusBadge and `/defects/:id` link; Pass/Defect shown as words; export this inspection |
-| 20 | historyPage.test.jsx | Access | Contractor gets 403 on `/inspections/:id`; admin gets 403 on `/inspections/new`; someone else's draft shows "couldn't find" |
+| 19 | historyPage.test.jsx | Report on `?report=` | Admin and inspector can open it; header, counts, defects with StatusBadge and `/defects/:id` link; Pass/Defect shown as words; export this inspection; filters kept in Back and breadcrumb links; banner only with `submitted=1` |
+| 20 | historyPage.test.jsx | Access and not-found | Contractor gets 403 on history and report; admin gets 403 on `/inspections/new` and `/inspections/<id>`; a draft or unknown ID shows "Inspection not found" with a way back |

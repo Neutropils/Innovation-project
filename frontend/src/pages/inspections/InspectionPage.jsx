@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ClipboardCheck, SearchX } from 'lucide-react'
 import api from '@/api'
 import { PageShell } from '@/components/PageHero'
 import { EmptyState, ErrorState } from '@/components/StateViews'
 import ChecklistView from './ChecklistView'
-import InspectionReport from './InspectionReport'
 import { ACTION_OUTLINE, ACTION_PRIMARY, errorMessage, isOffline } from './inspectionDisplay'
 
 // Owner: Kandha
 // Features: F01.3-F01.10 checklist, F01.12 report - one URL always works:
 //   /inspections/new?liftId=<id>  creates (or reopens) the inspector's draft, then moves to /inspections/<id>
-//   /inspections/<id>             a draft shows the checklist, a submitted inspection shows its report
+//   /inspections/<id>             a draft shows the checklist; a submitted inspection goes to its report
+//                                 (/inspections?report=<id>, on the history page)
 
 function Loading() {
   return (
@@ -34,7 +34,6 @@ export default function InspectionPage() {
 
   const [state, setState] = useState({ status: 'loading', detail: null, error: null })
   const [meta, setMeta] = useState(null)
-  const [justSubmitted, setJustSubmitted] = useState(false)
   const loadedId = useRef(null)
 
   const load = useCallback(async () => {
@@ -122,19 +121,14 @@ export default function InspectionPage() {
   }
 
   const { detail } = state
-  if (detail.status === 'submitted') {
-    return <InspectionReport detail={detail} justSubmitted={justSubmitted} />
-  }
+  // Already submitted: the report lives on the history page
+  if (detail.status === 'submitted') return <Navigate to={`/inspections?report=${detail.id}`} replace />
   return (
     <ChecklistView
       key={detail.id}
       detail={detail}
       severityDueDays={meta?.severityDueDays}
-      onSubmitted={(submitted) => {
-        setJustSubmitted(true)
-        setState({ status: 'ready', detail: submitted, error: null })
-        window.scrollTo?.(0, 0)
-      }}
+      onSubmitted={(submitted) => navigate(`/inspections?report=${submitted.id}&submitted=1`, { replace: true })}
     />
   )
 }

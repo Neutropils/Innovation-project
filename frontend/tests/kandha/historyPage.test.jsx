@@ -39,17 +39,17 @@ const submittedCalls = () => api.get.mock.calls.filter(([url, c]) => url === '/i
 describe('Inspections hub - inspector', () => {
   it('shows New inspection, a Drafts tab with its count, and the submitted list', async () => {
     renderAt('/inspections')
-    expect(screen.getByRole('button', { name: /New inspection/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /New inspection/ })).toHaveAttribute('href', '/lifts')
     expect(await screen.findByRole('tab', { name: 'Drafts (1)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Submitted', selected: true })).toBeInTheDocument()
     expect((await screen.findAllByText('INS-000009')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('1 defect').length).toBeGreaterThan(0)
   })
 
-  it('opens an inspection when its ID is clicked', async () => {
+  it('opens the report (on the same route) when a submitted ID is clicked', async () => {
     renderAt('/inspections')
     const link = (await screen.findAllByRole('link', { name: 'INS-000009' }))[0]
-    expect(link).toHaveAttribute('href', '/inspections/9')
+    expect(link).toHaveAttribute('href', '/inspections?report=9')
   })
 
   it('lists the inspector’s drafts with progress and a Continue link', async () => {
@@ -64,7 +64,8 @@ describe('Inspections hub - inspector', () => {
     serveList({ submitted: [], drafts: [] })
     renderAt('/inspections')
     expect(await screen.findByText('No inspections yet')).toBeInTheDocument()
-    expect(screen.getByText(/Start one from New inspection/)).toBeInTheDocument()
+    expect(screen.getByText(/Start one from Lifts/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to Lifts' })).toHaveAttribute('href', '/lifts')
     await userEvent.click(screen.getByRole('tab', { name: 'Drafts (0)' }))
     expect(screen.getByText('No drafts')).toBeInTheDocument()
   })
@@ -74,7 +75,7 @@ describe('Inspections hub - admin', () => {
   it('shows submitted inspections but no New inspection button and no Drafts tab', async () => {
     renderAt('/inspections', 'admin')
     expect((await screen.findAllByText('INS-000009')).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: /New inspection/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /New inspection/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     // Never asks for drafts
     expect(api.get.mock.calls.some(([url, c]) => url === '/inspections' && c?.params?.status === 'draft')).toBe(false)
@@ -84,7 +85,7 @@ describe('Inspections hub - admin', () => {
     serveList({ submitted: [] })
     renderAt('/inspections', 'admin')
     expect(await screen.findByText('No inspections yet')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /New inspection/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /New inspection/ })).not.toBeInTheDocument()
   })
 })
 
@@ -178,58 +179,20 @@ describe('Loading and errors', () => {
   })
 })
 
-describe('New inspection - lift picker', () => {
-  it('searches the register and goes to the checklist for the chosen lift', async () => {
-    renderAt('/inspections')
-    await userEvent.click(screen.getByRole('button', { name: /New inspection/ }))
-    const dialog = await screen.findByRole('dialog', { name: 'Which lift are you checking?' })
-    expect(await within(dialog).findByText('LIFT-0427')).toBeInTheDocument()
-
-    await userEvent.type(within(dialog).getByRole('searchbox', { name: 'Search lifts' }), 'bedok')
-    await waitFor(() => expect(within(dialog).queryByText('LIFT-0427')).not.toBeInTheDocument())
-    // The server search is debounced; the list is already narrowed on the page meanwhile
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/lifts', { params: { q: 'bedok' } }))
-
-    serveApi(api, { 'POST /inspections': ok(makeDetail({ id: 8 })), 'GET /checklist-items': ok([], { meta: {} }) })
-    await userEvent.click(within(dialog).getByRole('button', { name: /LIFT-0512/ }))
-    expect(api.post).toHaveBeenCalledWith('/inspections', { liftId: 4 })
-    expect(await screen.findByRole('heading', { name: 'LIFT-0427' })).toBeInTheDocument()
-  })
-
-  it('says when nothing matches, and closes with Escape', async () => {
-    renderAt('/inspections')
-    await userEvent.click(screen.getByRole('button', { name: /New inspection/ }))
-    const dialog = await screen.findByRole('dialog')
-    await userEvent.type(within(dialog).getByRole('searchbox'), 'zzz')
-    expect(await within(dialog).findByText('No lifts match “zzz”.')).toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  })
-
-  it('leaves out deactivated lifts', async () => {
-    serveList({ lifts: [...LIFTS, { id: 9, liftCode: 'LIFT-0999', block: '1', street: 'Old Road', isActive: false }] })
-    renderAt('/inspections')
-    await userEvent.click(screen.getByRole('button', { name: /New inspection/ }))
-    const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByText('LIFT-0427')
-    expect(within(dialog).queryByText('LIFT-0999')).not.toBeInTheDocument()
-  })
-})
-
-describe('Report (F01.12) and access', () => {
+describe('Report on /inspections?report= (F01.12) and access', () => {
   beforeEach(() => {
     serveApi(api, { 'GET /inspections/9': ok(makeSubmitted({ id: 9, displayId: 'INS-000009' })), 'GET /checklist-items': ok([], { meta: {} }) })
   })
 
   it('an admin can open a submitted inspection', async () => {
-    renderAt('/inspections/9', 'admin')
+    renderAt('/inspections?report=9', 'admin')
     expect(await screen.findByRole('heading', { name: 'INS-000009' })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Inspections / INS-000009')
     expect(screen.getByRole('link', { name: 'Back to inspections' })).toHaveAttribute('href', '/inspections')
   })
 
   it('shows the lift, contractor, inspector, counts and the defect with its status badge', async () => {
-    renderAt('/inspections/9', 'inspector')
+    renderAt('/inspections?report=9', 'inspector')
     expect(await screen.findByText('Apex Lift Engineering')).toBeInTheDocument()
     expect(screen.getAllByText('Ivy Tan').length).toBeGreaterThan(0) // also shown in the profile menu
     expect(screen.getByRole('link', { name: /Find in map/ })).toHaveAttribute('target', '_blank')
@@ -246,7 +209,7 @@ describe('Report (F01.12) and access', () => {
   })
 
   it('labels every answer with a word, not just a colour', async () => {
-    renderAt('/inspections/9', 'admin')
+    renderAt('/inspections?report=9', 'admin')
     const results = within(await screen.findByRole('region', { name: 'Checklist results' }))
     expect(results.getAllByText('Pass')).toHaveLength(2)
     expect(results.getAllByText('Defect')).toHaveLength(1)
@@ -257,32 +220,71 @@ describe('Report (F01.12) and access', () => {
       if (url === '/inspections/export') return Promise.resolve({ data: new Blob(['x']), headers: {} })
       return Promise.resolve({ data: ok(url === '/inspections/9' ? makeSubmitted({ id: 9, displayId: 'INS-000009' }) : []) })
     })
-    renderAt('/inspections/9', 'admin')
+    renderAt('/inspections?report=9', 'admin')
     await userEvent.click(await screen.findByRole('button', { name: 'Export this inspection (CSV)' }))
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/inspections/export', { params: { inspectionId: 9 }, responseType: 'blob' }))
   })
 
-  it('shows the success banner only straight after submitting', async () => {
-    renderAt('/inspections/9', 'admin')
+  it('shows the success banner only straight after submitting (?submitted=1)', async () => {
+    renderAt('/inspections?report=9', 'admin')
     await screen.findByRole('heading', { name: 'INS-000009' })
     expect(screen.queryByText(/Submitted · /)).not.toBeInTheDocument()
   })
 
-  it('keeps a contractor out of every inspection page', async () => {
-    renderAt('/inspections/9', 'contractor')
+  it('names the contractor in the banner after a submit', async () => {
+    renderAt('/inspections?report=9&submitted=1', 'inspector')
+    expect(await screen.findByText('Submitted · 1 defect sent to Apex Lift Engineering')).toBeInTheDocument()
+  })
+
+  it('keeps the history filters, so Back returns to the same filtered list', async () => {
+    renderAt('/inspections?liftId=3&result=defect&report=9&submitted=1', 'admin')
+    await screen.findByRole('heading', { name: 'INS-000009' })
+    const back = '/inspections?liftId=3&result=defect'
+    expect(screen.getByRole('link', { name: 'Back to inspections' })).toHaveAttribute('href', back)
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Inspections' })).toHaveAttribute('href', back)
+  })
+
+  it('carries the filters into the report link from the list', async () => {
+    serveList()
+    renderAt('/inspections?liftId=3&result=defect', 'admin')
+    const link = (await screen.findAllByRole('link', { name: 'INS-000009' }))[0]
+    expect(link).toHaveAttribute('href', '/inspections?liftId=3&result=defect&report=9')
+  })
+
+  it('keeps a contractor out of the history and the report', async () => {
+    renderAt('/inspections?report=9', 'contractor')
     expect(screen.getByText('403 - Forbidden')).toBeInTheDocument()
     expect(api.get).not.toHaveBeenCalledWith('/inspections/9')
   })
 
-  it('keeps an admin out of the new-inspection page (admins cannot start one)', async () => {
+  it('keeps an admin off the checklist routes (admins cannot run or submit a spot-check)', async () => {
     renderAt('/inspections/new?liftId=3', 'admin')
     expect(screen.getByText('403 - Forbidden')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
   })
 
-  it('hides a draft that is not yours', async () => {
+  it('keeps an admin off /inspections/<id> too', async () => {
+    renderAt('/inspections/9', 'admin')
+    expect(screen.getByText('403 - Forbidden')).toBeInTheDocument()
+    expect(api.get).not.toHaveBeenCalledWith('/inspections/9')
+  })
+
+  it('says "Inspection not found" for a draft that is not yours, with a way back', async () => {
     serveApi(api, { 'GET /inspections/4': () => reject(404, { code: 'NOT_FOUND', message: 'Inspection not found' }) })
-    renderAt('/inspections/4', 'admin')
-    expect(await screen.findByText('We couldn’t find that inspection')).toBeInTheDocument()
+    renderAt('/inspections?liftId=3&report=4', 'admin')
+    expect(await screen.findByText('Inspection not found')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to inspections' })).toHaveAttribute('href', '/inspections?liftId=3')
+  })
+
+  it('says "Inspection not found" for the inspector’s own unsent draft, never a blank page', async () => {
+    serveApi(api, { 'GET /inspections/4': ok(makeDetail({ id: 4 })) })
+    renderAt('/inspections?report=4', 'inspector')
+    expect(await screen.findByText('Inspection not found')).toBeInTheDocument()
+  })
+
+  it('offers a retry when the report cannot load', async () => {
+    serveApi(api, { 'GET /inspections/9': () => reject(500, { message: 'Server is down' }) })
+    renderAt('/inspections?report=9', 'admin')
+    expect(await screen.findByText('Couldn’t load the report')).toBeInTheDocument()
   })
 })

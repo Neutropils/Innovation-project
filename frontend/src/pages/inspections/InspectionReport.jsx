@@ -15,7 +15,7 @@ import {
 // Features: F01.12 inspection report (also the single-inspection export, F05.3)
 // Wireframe: design/screens.md "Inspection history and report"
 //
-// Read-only. Defects are listed from the API (created by defectService on submit); each links
+// Shown on /inspections?report=<id> (see ReportView). Read-only. Defects are listed from the API (created by defectService on submit); each links
 // to /defects/<id>, which Jerald's page serves.
 
 const severityLabel = (value) => SEVERITIES.find((s) => s.value === value)?.label ?? value
@@ -53,7 +53,7 @@ function Count({ label, value, tone }) {
   )
 }
 
-export default function InspectionReport({ detail, justSubmitted }) {
+export default function InspectionReport({ detail, justSubmitted, backTo = '/inspections' }) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
   const { lift, counts, defects } = detail
@@ -74,7 +74,7 @@ export default function InspectionReport({ detail, justSubmitted }) {
   return (
     <PageShell>
       <nav aria-label="Breadcrumb" className="px-1 text-sm text-muted-foreground">
-        <Link to="/inspections" className="inline-flex min-h-[44px] items-center font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link to={backTo} className="inline-flex min-h-[44px] items-center font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           Inspections
         </Link>
         <span aria-hidden="true"> / </span>
@@ -210,7 +210,7 @@ export default function InspectionReport({ detail, justSubmitted }) {
           <Download className="h-4 w-4" aria-hidden="true" />
           {exporting ? 'Exporting…' : 'Export this inspection (CSV)'}
         </button>
-        <Link to="/inspections" className={ACTION_OUTLINE}>
+        <Link to={backTo} className={ACTION_OUTLINE}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to inspections
         </Link>

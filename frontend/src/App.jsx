@@ -68,14 +68,14 @@ export default function App() {
           {/* ── Inspector only ─────────────────────────────────────────────── */}
           <Route element={<RoleRoute roles={['inspector']} />}>
             <Route path="/inspections/new" element={<InspectionPage />} />
+            <Route path="/inspections/:id" element={<InspectionPage />} />
           </Route>
 
           {/* ── Inspector and admin ────────────────────────────────────────── */}
           <Route element={<RoleRoute roles={['inspector', 'admin']} />}>
             <Route path="/lifts" element={<LiftsPage />} />
             <Route path="/inspections" element={<InspectionHistoryPage />} />
-            <Route path="/inspections/:id" element={<InspectionPage />} />
-            <Route path="/defects"element={<DefectsPage />} />
+            <Route path="/defects" element={<DefectsPage />} />
           </Route>
 
           {/* ── Inspector, admin and contractor (own company only) ─────────── */}

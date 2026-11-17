@@ -180,12 +180,13 @@ describe('Submit (F01.10)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('2 items not answered')
   })
 
-  it('submits, then shows the report with a banner naming the contractor', async () => {
+  it('submits, then goes to the report on the history route with a banner naming the contractor', async () => {
+    let submitted = false
     serveApi(api, {
-      'GET /inspections/7': ok(makeDetail()),
+      'GET /inspections/7': () => ok(submitted ? makeSubmitted({ id: 7 }) : makeDetail()),
       'GET /checklist-items': ok([], { meta: META }),
       'PUT /inspections/7/results': ok(makeDetail()),
-      'POST /inspections/7/submit': ok(makeSubmitted({ id: 7 })),
+      'POST /inspections/7/submit': () => { submitted = true; return ok(makeSubmitted({ id: 7 })) },
     })
     await openChecklist()
     await userEvent.click(screen.getByRole('button', { name: 'Mark all unanswered items in Motor room as pass' }))
@@ -196,11 +197,11 @@ describe('Submit (F01.10)', () => {
     await userEvent.click(submitButton())
 
     expect(await screen.findByText('Submitted · 1 defect sent to Apex Lift Engineering')).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/inspections?report=7&submitted=1')
     // Saved first, then submitted
     const submitOrder = api.post.mock.invocationCallOrder[api.post.mock.calls.findIndex(([url]) => url === '/inspections/7/submit')]
     expect(Math.max(...api.put.mock.invocationCallOrder)).toBeLessThan(submitOrder)
-    expect(api.post).toHaveBeenCalledWith('/inspections/7/submit')
-    expect(screen.getByRole('link', { name: 'DEF-000005' })).toHaveAttribute('href', '/defects/5')
+    expect(screen.getAllByRole('link', { name: 'DEF-000005' })[0]).toHaveAttribute('href', '/defects/5')
   })
 
   it('outlines what the server names in a 422, even when this page had not noticed', async () => {
@@ -236,6 +237,15 @@ describe('Submit (F01.10)', () => {
     await userEvent.click(submitButton())
     expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t submit the inspection')
     expect(screen.getByRole('heading', { name: 'LIFT-0427' })).toBeInTheDocument()
+  })
+})
+
+describe('Already submitted', () => {
+  it('redirects /inspections/<id> to its report', async () => {
+    serveApi(api, { 'GET /inspections/7': ok(makeSubmitted({ id: 7 })), 'GET /checklist-items': ok([], { meta: META }) })
+    renderAt('/inspections/7')
+    expect(await screen.findByRole('heading', { name: 'INS-000007' })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/inspections?report=7')
   })
 })
 
