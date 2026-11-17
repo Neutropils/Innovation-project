@@ -148,7 +148,7 @@ async function loadDetail(id, user) {
 // Two "start" requests for the same inspector and lift can arrive together (a double-tap, or the
 // page loading twice). Without this, both would find no draft and each create one. Requests
 // with the same key run one after another, so the second finds the first one's draft.
-// (Covers one server process; a unique index on open drafts would cover several.)
+// (Covers one server process; the unique index below covers several.)
 const draftLocks = new Map()
 function withDraftLock(key, fn) {
   const previous = draftLocks.get(key) ?? Promise.resolve()
@@ -166,14 +166,21 @@ async function createOrGetDraft(user, liftId) {
   if (!lift || lift.isActive === false) throw appError(404, 'NOT_FOUND', 'Lift not found')
 
   const { created, id } = await withDraftLock(`${user.sub}:${liftId}`, async () => {
-    const existing = await Inspection.findOne({
-      where: { liftId, inspectorId: user.sub, status: 'draft' },
-      order: [['id', 'DESC']],
-    })
+    const where = { liftId, inspectorId: user.sub, status: 'draft' }
+    const existing = await Inspection.findOne({ where, order: [['id', 'DESC']] })
     if (existing) return { created: false, id: existing.id }
-    // The inspector always comes from the login, never from the request body
-    const draft = await Inspection.create({ liftId, inspectorId: user.sub, status: 'draft' })
-    return { created: true, id: draft.id }
+    try {
+      // The inspector always comes from the login, never from the request body
+      const draft = await Inspection.create({ liftId, inspectorId: user.sub, status: 'draft' })
+      return { created: true, id: draft.id }
+    } catch (err) {
+      // The database allows one open draft per inspector and lift (a partial unique index). If another
+      // request or server process created it between our check and our insert, reopen that one.
+      if (err.name !== 'SequelizeUniqueConstraintError') throw err
+      const winner = await Inspection.findOne({ where, order: [['id', 'DESC']] })
+      if (!winner) throw err
+      return { created: false, id: winner.id }
+    }
   })
   return { created, inspection: await loadDetail(id, user) }
 }

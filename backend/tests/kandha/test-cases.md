@@ -31,3 +31,5 @@ Inspection slice: checklist, drafts, submit, history, report, CSV export. Both f
 | 25 | inspectionService.test.js | listInspections visibility | Admin sees submitted only; inspector sees submitted plus own drafts |
 | 26 | inspectionService.test.js | listInspections filters | Lift, date range (whole last day), result (defects / all pass) |
 | 27 | inspectionService.test.js | CSV | Header row, one row per answer in checklist order, comma/quote/newline escaping, formula guard, submitted only |
+| 28 | inspectionService.test.js | Two simultaneous starts for the same lift | One draft is created; both callers get it (per-inspector-and-lift lock); other lifts and inspectors are not held up; a failed start does not block the next |
+| 29 | inspectionService.test.js | Unique-draft index rejects the insert (another process won the race) | `SequelizeUniqueConstraintError` is caught and the existing draft is returned with `created: false`; any other error is rethrown; a violation with no draft to find is rethrown, never hidden |

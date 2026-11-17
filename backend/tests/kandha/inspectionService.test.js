@@ -120,6 +120,33 @@ describe('createOrGetDraft', () => {
     expect(a.inspection.id).toBe(b.inspection.id)
   })
 
+  it('when the unique-draft index rejects the insert (another process won the race), reopens that draft instead of erroring', async () => {
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 8 })
+    const violation = Object.assign(new Error('Validation error'), { name: 'SequelizeUniqueConstraintError' })
+    Inspection.create.mockRejectedValue(violation)
+    Inspection.findByPk.mockResolvedValue(inspectionRow({ id: 8 }))
+
+    const out = await service.createOrGetDraft(inspector, 3)
+    expect(out.created).toBe(false)
+    expect(out.inspection.id).toBe(8)
+    expect(Inspection.findOne).toHaveBeenCalledTimes(2)
+  })
+
+  it('still reports any other insert error', async () => {
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockResolvedValue(null)
+    Inspection.create.mockRejectedValue(Object.assign(new Error('connection lost'), { name: 'SequelizeConnectionError' }))
+    await expect(service.createOrGetDraft(inspector, 3)).rejects.toThrow('connection lost')
+  })
+
+  it('rethrows a unique violation when no draft can be found afterwards (so it is never hidden)', async () => {
+    Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
+    Inspection.findOne.mockResolvedValue(null)
+    Inspection.create.mockRejectedValue(Object.assign(new Error('Validation error'), { name: 'SequelizeUniqueConstraintError' }))
+    await expect(service.createOrGetDraft(inspector, 3)).rejects.toThrow('Validation error')
+  })
+
   it('does not hold up a different lift or a different inspector', async () => {
     Lift.findByPk.mockResolvedValue({ id: 3, isActive: true })
     Inspection.findOne.mockResolvedValue(null)

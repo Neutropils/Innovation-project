@@ -14,6 +14,10 @@ const Inspection = sequelize.define('Inspection', {
 }, {
   tableName: 'inspections',
   underscored: true,
+  indexes: [
+    // One open draft per inspector per lift (migration 20261118000000). Submitted inspections are not covered.
+    { name: 'inspections_one_open_draft_per_inspector_lift', unique: true, fields: ['inspector_id', 'lift_id'], where: { status: 'draft' } },
+  ],
 })
 
 module.exports = { Inspection, INSPECTION_STATUSES }
