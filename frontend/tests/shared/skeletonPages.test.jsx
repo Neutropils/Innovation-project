@@ -28,9 +28,8 @@ afterEach(() => localStorage.clear())
 const PAGES = [
   ['/lifts', 'Lifts', 'inspector', 'contractor'],
   ['/inspections', 'Inspections', 'admin', 'contractor'],
-  ['/inspections/new?liftId=3', 'Inspection', 'inspector', 'admin'],
-  ['/inspections/12', 'Inspection', 'inspector', 'contractor'],
-  ['/defects', 'Defects', 'inspector', 'contractor'],
+  // /inspections/new and /inspections/:id are built; their access rules are tested in tests/kandha/
+  ['/defects','Defects', 'inspector', 'contractor'],
   ['/defects/7', 'Defect 7', 'contractor', 'member'],
   ['/inbox', 'Inbox', 'contractor', 'inspector'],
   ['/overview', 'Overview', 'admin', 'inspector'],
