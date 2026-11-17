@@ -68,6 +68,37 @@ npm run dev
 
 The frontend proxies `/api/*` to the backend, so no extra config is needed in development.
 
+### Prototype mode (no backend needed)
+
+By default the frontend runs in prototype mode: every API call is answered in the browser with demo
+data (`frontend/src/prototype/`), so `cd frontend && npm run dev` is enough to click through the app.
+Set `VITE_PROTOTYPE=false` in `frontend/.env` to use the real backend instead.
+
+Demo accounts (also one tap each on the login page):
+
+| Role | Email | Name | Lands on |
+|------|-------|------|----------|
+| Inspector | `inspector@demo.ems` | Ivy Tan | Lifts |
+| Contractor (Apex Lifts) | `contractor@demo.ems` | Marcus Lim | Inbox |
+| Admin | `admin@demo.ems` | Aisha Rahman | Overview |
+
+All three use the password `Demo@1234`. These accounts are made up and exist only in prototype mode -
+they are not real credentials and do not work against the backend. Logins for the shared database are
+different (see Test below) and are never written down in this repo.
+
+To show the login error states, sign in with:
+
+| To show | Email | Password |
+|---------|-------|----------|
+| Wrong password | `inspector@demo.ems` | anything else |
+| Deactivated account | `disabled@demo.ems` | `Demo@1234` |
+| No connection | `offline@demo.ems` | `Demo@1234` |
+| Server error | `error@demo.ems` | `Demo@1234` |
+
+Once signed in, the dashed "Prototype" bar at the bottom of the Lifts, Admin, Overview and Defects
+pages switches that page between demo data, empty, offline and server error. Anything added or
+imported in prototype mode is kept in memory and resets when the page is reloaded.
+
 ### Test
 
 ```bash
