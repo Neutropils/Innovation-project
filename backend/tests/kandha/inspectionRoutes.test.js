@@ -256,7 +256,7 @@ describe('POST /api/inspections/:id/submit', () => {
     inspectionService.submit.mockRejectedValue(err)
     const res = await request(app).post('/api/inspections/7/submit').set(as('inspector'))
     expect(res.status).toBe(422)
-    expect(res.body).toMatchObject({ success: false, code: 'VALIDATION_ERROR', unanswered: [1, 2, 3], incompleteDefects: [9] })
+    expect(res.body).toMatchObject({ success: false, error: 'VALIDATION_FAILED', code: 'VALIDATION_ERROR', unanswered: [1, 2, 3], incompleteDefects: [9] })
   })
 
   it('answers 409 on a second submit', async () => {

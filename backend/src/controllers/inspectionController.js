@@ -15,7 +15,8 @@ function handle(fn) {
       if (err.name === 'ValidationError') return error(res, err.errors.join(', '), 'VALIDATION_ERROR', 422)
       if (err.status) {
         // submit() attaches the named items so the page can outline them
-        if (err.details) return res.status(err.status).json({ success: false, code: err.code, message: err.message, ...err.details })
+        // `error` repeats the contract's name for this failure next to the skeleton's success/code/message
+        if (err.details) return res.status(err.status).json({ success: false, error: 'VALIDATION_FAILED', code: err.code, message: err.message, ...err.details })
         return error(res, err.message, err.code, err.status)
       }
       console.error('[inspections]', err)
