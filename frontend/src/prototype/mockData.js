@@ -1,5 +1,5 @@
 // Prototype demo data for the EMS (admin) pages - fictional contractors, lifts and defects.
-import { matchesSearch } from '@/pages/defects/defectDisplay'
+import { localIso, matchesSearch } from '@/pages/defects/defectDisplay'
 
 // Dates are relative to today so the overdue flags stay realistic whenever the demo runs.
 // Shapes match the planned API (design/feature-dependencies.md "Endpoints").
@@ -14,11 +14,12 @@ export const CONTRACTORS = [
 // Days until due by severity - mirrors SEVERITY_DUE_DAYS placeholders (TBC with EMS)
 export const SEVERITY_DUE_DAYS = { critical: 1, major: 7, minor: 14 }
 
-const day = (offset) => {
+// 'YYYY-MM-DD' `offset` days from today (every demo date is written with this)
+export const day = (offset) => {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   d.setDate(d.getDate() + offset)
-  return d.toISOString().slice(0, 10)
+  return localIso(d)
 }
 
 // [id, liftCode, liftName, item, severity, status, contractorId, createdDaysAgo]
@@ -40,9 +41,17 @@ const ROWS = [
   [41, 'LIFT-0855', 'Blk 640 Lift B', 'Buffer oil low', 'major', 'closed', 4, 40],
 ]
 
+// Lift ids in the demo lift register (prototype/registerData.js LIFT_ROWS), so the Defects
+// page's Lift filter (?liftId=) matches the lifts it lists.
+const LIFT_IDS = {
+  'LIFT-0427': 1, 'LIFT-0311': 3, 'LIFT-0102': 4, 'LIFT-0518': 5, 'LIFT-0519': 6,
+  'LIFT-0640': 7, 'LIFT-0233': 8, 'LIFT-0761': 9, 'LIFT-0855': 10,
+}
+
 export const DEFECTS = ROWS.map(([id, liftCode, liftName, item, severity, status, contractorId, ago]) => ({
   id,
   code: `DEF-${String(id).padStart(6, '0')}`,
+  liftId: LIFT_IDS[liftCode],
   liftCode,
   liftName,
   item,
@@ -54,10 +63,11 @@ export const DEFECTS = ROWS.map(([id, liftCode, liftName, item, severity, status
   dueDate: day(-ago + SEVERITY_DUE_DAYS[severity]),
 }))
 
-// Inspections submitted, per period (no inspection list in this prototype yet)
-const INSPECTIONS = { week: 12, month: 42, '30d': 47, all: 318 }
+// How far back each Overview period reaches, in days
+export const PERIOD_DAYS = { week: 7, month: new Date().getDate() - 1, '30d': 30, all: Infinity }
 
-const PERIOD_DAYS = { week: 7, month: new Date().getDate() - 1, '30d': 30, all: Infinity }
+// The not-closed statuses, in workflow order - the per-contractor breakdown on the Overview (F08.3)
+export const ACTIVE_STATUSES = ['open', 'acknowledged', 'in_progress', 'pending_verification']
 
 export const isOverdue = (d, today = day(0)) => d.status !== 'closed' && d.dueDate < today
 
@@ -66,11 +76,15 @@ function inPeriod(d, period) {
   return days === Infinity || d.createdAt >= day(-days)
 }
 
-// GET /api/defects?contractorId=&status=&severity=&overdue=&q=
+// GET /api/defects?contractorId=&liftId=&status=&severity=&overdue=&dueFrom=&dueTo=&q=
+// dueFrom / dueTo are 'YYYY-MM-DD' and inclusive (F02.8 due date, F05.6 report date range).
 export function queryDefects(params = {}) {
   return DEFECTS.filter((d) =>
     matchesSearch(d, params.q) &&
     (!params.contractorId || d.contractorId === Number(params.contractorId)) &&
+    (!params.liftId || d.liftId === Number(params.liftId)) &&
+    (!params.dueFrom || d.dueDate >= params.dueFrom) &&
+    (!params.dueTo || d.dueDate <= params.dueTo) &&
     (!params.status || (params.status === 'active' ? d.status !== 'closed' : d.status === params.status)) &&
     (!params.severity || d.severity === params.severity) &&
     (String(params.overdue) !== 'true' || isOverdue(d))
@@ -78,7 +92,9 @@ export function queryDefects(params = {}) {
 }
 
 // GET /api/overview?period=
-export function overview(period = 'month') {
+// `inspections` is the number submitted in the period (F08.4) - mockApi counts it from the
+// prototype inspection records (inspectionRecords.js countSubmittedInspections).
+export function overview(period = 'month', inspections = 0) {
   const list = DEFECTS.filter((d) => inPeriod(d, period))
   const count = (fn) => list.filter(fn).length
   return {
@@ -86,27 +102,33 @@ export function overview(period = 'month') {
     open: count((d) => d.status !== 'closed'),
     overdue: count((d) => isOverdue(d)),
     pendingVerification: count((d) => d.status === 'pending_verification'),
-    inspections: INSPECTIONS[period] ?? INSPECTIONS.month,
+    inspections,
     byContractor: CONTRACTORS.map((c) => ({
       contractorId: c.id,
       name: c.name,
       open: count((d) => d.contractorId === c.id && d.status !== 'closed'),
       overdue: count((d) => d.contractorId === c.id && isOverdue(d)),
+      // F08.3: their not-closed defects by status
+      byStatus: Object.fromEntries(ACTIVE_STATUSES.map((s) => [s, count((d) => d.contractorId === c.id && d.status === s)])),
     })),
   }
 }
 
 // GET /api/defects/export - CSV of the filtered list
 export function defectsCsv(params) {
-  const header = ['Defect', 'Lift', 'Location', 'Item', 'Severity', 'Status', 'Contractor', 'Due date', 'Overdue']
-  const cell = (v) => `"${String(v).replace(/"/g, '""')}"`
+  const header = ['Defect', 'Lift', 'Location', 'Item', 'Checklist item', 'Inspection', 'Severity', 'Status', 'Contractor', 'Due date', 'Overdue']
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const checklist = (d) => (d.checklistItem ? `${d.checklistItem.code} ${d.checklistItem.text}` : '')
   const lines = queryDefects(params).map((d) =>
-    [d.code, d.liftCode, d.liftName, d.item, d.severity, d.status, d.contractorName, d.dueDate, isOverdue(d) ? 'yes' : 'no'].map(cell).join(',')
+    [d.code, d.liftCode, d.liftName, d.item, checklist(d), d.inspectionCode, d.severity, d.status, d.contractorName, d.dueDate, isOverdue(d) ? 'yes' : 'no'].map(cell).join(',')
   )
   return [header.join(','), ...lines].join('\n')
 }
 
 export const EMPTY_OVERVIEW = (period) => ({
   period, open: 0, overdue: 0, pendingVerification: 0, inspections: 0,
-  byContractor: CONTRACTORS.map((c) => ({ contractorId: c.id, name: c.name, open: 0, overdue: 0 })),
+  byContractor: CONTRACTORS.map((c) => ({
+    contractorId: c.id, name: c.name, open: 0, overdue: 0,
+    byStatus: Object.fromEntries(ACTIVE_STATUSES.map((s) => [s, 0])),
+  })),
 })
