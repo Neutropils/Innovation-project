@@ -5,15 +5,16 @@
 const router = require('express').Router()
 const { authenticate, authorise } = require('../middleware')
 const { notImplemented } = require('../utils')
+const controller = require('../controllers/defectController')
 
 const todo = notImplemented('Si Qi')
 
 // /api/defects
 router.get('/', authenticate, authorise('inspector', 'admin'), todo)              // ?contractorId=&status=&severity=&overdue=&liftId=
 router.get('/export', authenticate, authorise('inspector', 'admin'), todo)        // CSV, same filters
-router.get('/:id', authenticate, authorise('inspector', 'admin', 'contractor'), todo)  // contractor: own company only
-router.get('/:id/history', authenticate, authorise('inspector', 'admin', 'contractor'), todo)
-router.patch('/:id/assign', authenticate, authorise('admin'), todo)               // { contractorId, reason }
+router.get('/:id', authenticate, authorise('inspector', 'admin', 'contractor'), controller.getDefect)  // contractor: own company only
+router.get('/:id/history', authenticate, authorise('inspector', 'admin', 'contractor'), controller.getHistory)  // F02.10 defect_events
+router.patch('/:id/assign', authenticate, authorise('admin'), controller.assign)  // F02.4 { contractorId, reason }
 
 // /api/overview
 const overviewRouter = require('express').Router()
