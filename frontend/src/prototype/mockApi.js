@@ -1,6 +1,8 @@
 import { AxiosError } from 'axios'
 import { EMPTY_OVERVIEW, defectsCsv, overview, queryDefects } from './mockData'
 import { registerRequest } from './registerData'
+import { defectRecordRequest } from './defectRecords'
+import { countSubmittedInspections, inspectionRequest } from './inspectionRecords'
 import { getScenario } from './scenario'
 
 // Prototype mode: the app runs with no backend so it can be demoed anywhere.
@@ -75,6 +77,16 @@ function login(config, body) {
   return reply(config, 200, { success: true, data: { token: fakeToken(account), user: { id: 1, name, email, role } } })
 }
 
+// The signed-in demo user, as the history shows them (id, name, role)
+function signedInUser() {
+  try {
+    const { sub, name, role } = JSON.parse(atob(localStorage.getItem('app_token').split('.')[1]))
+    return { id: sub, name, role }
+  } catch {
+    return null
+  }
+}
+
 // Axios adapter: replaces the network layer for the shared instance in prototype mode.
 export async function mockAdapter(config) {
   await delay(LATENCY_MS)
@@ -99,10 +111,23 @@ export async function mockAdapter(config) {
   const register = registerRequest(config, { method, path, body, empty })
   if (register) return reply(config, register.status, register.body)
 
+  // Records from the register, for the defect and inspection handlers below
+  const findInRegister = (resource, id) => registerRequest(config, { method: 'get', path: `/${resource}/${id}` })?.body.data ?? null
+  const deps = { findLift: (id) => findInRegister('lifts', id), findContractor: (id) => findInRegister('contractors', id) }
+  const user = signedInUser()
+
+  // Si Qi: one defect's detail, rectification history and reassignment
+  const record = defectRecordRequest({ method, path, body, findContractor: deps.findContractor, actor: user })
+  if (record) return reply(config, record.status, record.body)
+
+  // Inspections: checklist, drafts, submit (creates defects, F02.1), history, report, export
+  const inspection = inspectionRequest({ method, path, body, params, user, deps, empty })
+  if (inspection) return reply(config, inspection.status, inspection.body)
+
   if (method === 'get') {
     if (path.endsWith('/overview')) {
       const period = params.period ?? 'month'
-      return reply(config, 200, { success: true, data: empty ? EMPTY_OVERVIEW(period) : overview(period) })
+      return reply(config, 200, { success: true, data: empty ? EMPTY_OVERVIEW(period) : overview(period, countSubmittedInspections(period)) })
     }
     if (path.endsWith('/defects/export')) return reply(config, 200, empty ? defectsCsv({ status: '__none__' }) : defectsCsv(params))
     if (path.endsWith('/defects')) return reply(config, 200, { success: true, data: empty ? [] : queryDefects(params) })

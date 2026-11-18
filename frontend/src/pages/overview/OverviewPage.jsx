@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ChevronRight, ClipboardCheck, History, LayoutDashboard, ShieldCheck, Wrench } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, ClipboardCheck, History, LayoutDashboard, ShieldCheck, Wrench } from 'lucide-react'
 import api from '@/api'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
@@ -11,7 +11,7 @@ import { initials } from '@/pages/defects/defectDisplay'
 import DemoScenarioBar, { useScenario } from '@/prototype/DemoScenarioBar'
 
 // Owner: Si Qi
-// Features: F08.1-F08.4 open, overdue, pending-verification and inspection counts, by contractor - admin home
+// Features: F08.1-F08.4 open, overdue, pending-verification and inspection counts, by contractor and status - admin home
 // Wireframe: design/screens.md "Overview". Counts, plus small bars per contractor (no full charts).
 // Overview answers "how are we doing and who needs chasing"; the Defects page is the full
 // working list. Every count links to the Defects page with the matching filter.
@@ -81,38 +81,34 @@ function TileSkeleton() {
   return <div className={cn(CARD, 'h-[148px] animate-pulse')} aria-hidden="true" />
 }
 
-// Every number gets the same bubble; overdue turns red only when it's above 0.
-function CountBubble({ value, label, alert }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-8 min-w-[2.75rem] items-center justify-center rounded-full px-2.5 text-base font-semibold tabular-nums ring-1 ring-inset',
-        alert ? 'bg-destructive/10 text-destructive ring-destructive/25' : 'bg-muted text-foreground/80 ring-border'
-      )}
-    >
-      {value}
-      <span className="sr-only"> {label}</span>
-    </span>
-  )
+// F08.3: a company's not-closed defects by status. 'open' reads as "new", because "open"
+// on this page already means "not closed".
+// [status, label in a sentence, label on its own]
+const STATUS_PARTS = [
+  ['open', 'new', 'New'],
+  ['acknowledged', 'acknowledged', 'Acknowledged'],
+  ['in_progress', 'in progress', 'In progress'],
+  ['pending_verification', 'to verify', 'To verify'],
+]
+// "2 new · 1 in progress · 1 to verify"
+export function statusBreakdown(byStatus) {
+  if (!byStatus) return ''
+  return STATUS_PARTS.filter(([key]) => byStatus[key] > 0).map(([key, label]) => `${byStatus[key]} ${label}`).join(' · ')
 }
 
-// Small bar: open defects relative to the busiest contractor, overdue part in red.
-function LoadBar({ open, overdue, max }) {
-  const pct = (n) => (max > 0 ? Math.max((n / max) * 100, n > 0 ? 4 : 0) : 0)
-  return (
-    <span className="mt-1.5 flex h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-muted" aria-hidden="true">
-      <span className="h-full bg-destructive" style={{ width: `${pct(overdue)}%` }} />
-      <span className="h-full bg-primary/60 dark:bg-accent/70" style={{ width: `${pct(open - overdue)}%` }} />
-    </span>
-  )
-}
-
-function ContractorRow({ c, max }) {
+// One company: name, open count and overdue count. Tap it to see the split by status,
+// each linking to that company's defects in that status.
+function ContractorRow({ c }) {
+  const [open, setOpen] = useState(false)
+  const panelId = useId()
   return (
     <li>
-      <Link
-        to={`/defects?contractorId=${c.contractorId}&status=active`}
-        className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
       >
         <span
           className={cn(
@@ -125,12 +121,43 @@ function ContractorRow({ c, max }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block break-words text-base font-semibold leading-snug text-foreground">{c.name}</span>
-          <LoadBar open={c.open} overdue={c.overdue} max={max} />
+          <span className="block text-xs text-muted-foreground">{c.open} open</span>
         </span>
-        <CountBubble value={c.open} label="open" />
-        <CountBubble value={c.overdue} label="overdue" alert={c.overdue > 0} />
-        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-      </Link>
+        <span
+          className={cn(
+            'flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ring-1 ring-inset',
+            c.overdue > 0 ? 'bg-destructive/10 text-destructive ring-destructive/25' : 'bg-muted text-muted-foreground ring-border'
+          )}
+        >
+          {c.overdue} overdue
+        </span>
+        <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div id={panelId} className="mx-3 mb-3 rounded-xl bg-muted/50 p-3 motion-safe:animate-in motion-safe:fade-in">
+          <ul aria-label={`${c.name} by status`} className="grid grid-cols-2 gap-2">
+            {STATUS_PARTS.map(([key, , title]) => (
+              <li key={key}>
+                <Link
+                  to={`/defects?contractorId=${c.contractorId}&status=${key}`}
+                  className="flex items-center justify-between rounded-lg bg-card px-3 py-2 text-sm ring-1 ring-border transition hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="text-muted-foreground">{title}</span>
+                  <span className="font-semibold tabular-nums text-foreground">{c.byStatus?.[key] ?? 0}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link
+            to={`/defects?contractorId=${c.contractorId}&status=active`}
+            className="mt-3 inline-flex items-center gap-0.5 text-sm font-semibold text-primary hover:underline dark:text-accent"
+          >
+            View their defects
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      )}
     </li>
   )
 }
@@ -153,7 +180,7 @@ export default function OverviewPage() {
   const nothingOpen = data && data.open === 0 && data.overdue === 0 && data.pendingVerification === 0
   // Who needs chasing first: most overdue, then biggest backlog
   const contractors = data ? [...data.byContractor].sort((a, b) => b.overdue - a.overdue || b.open - a.open) : []
-  const maxOpen = Math.max(0, ...contractors.map((c) => c.open))
+
   const firstName = user?.name?.split(' ')[0]
 
   return (
@@ -203,11 +230,8 @@ export default function OverviewPage() {
             <div className="flex items-end gap-3 border-b border-border/70 px-3 pb-2.5 pt-2">
               <div className="min-w-0 flex-1">
                 <h2 id="contractors" className="text-base font-semibold text-foreground">Needs attention</h2>
-                <p className="text-xs text-muted-foreground">Most overdue first</p>
+                <p className="text-xs text-muted-foreground">Most overdue first · tap a company to see its defects by status</p>
               </div>
-              <span className="w-[2.75rem] text-center text-xs font-medium text-muted-foreground">Open</span>
-              <span className="w-[2.75rem] text-center text-xs font-medium text-muted-foreground">Overdue</span>
-              <span className="w-4" aria-hidden="true" />
             </div>
 
             {state.status === 'loading' ? (
@@ -232,7 +256,7 @@ export default function OverviewPage() {
               />
             ) : (
               <ul className="divide-y divide-border/70">
-                {contractors.map((c) => <ContractorRow key={c.contractorId} c={c} max={maxOpen} />)}
+                {contractors.map((c) => <ContractorRow key={c.contractorId} c={c} />)}
               </ul>
             )}
           </section>

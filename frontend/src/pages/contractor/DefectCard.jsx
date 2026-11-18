@@ -61,10 +61,10 @@ export default function DefectCard({ defect, onAcknowledge }) {
         <Button
           type="button"
           onClick={() => onAcknowledge(defect.id)}
-          aria-label={`View and acknowledge ${defect.code}`}
+          aria-label={`Acknowledge ${defect.code}`}
           className={cn(PRIMARY_BUTTON, 'mt-3.5 w-full')}
         >
-          View and acknowledge
+          Acknowledge
         </Button>
       )}
     </Card>

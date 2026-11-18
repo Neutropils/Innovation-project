@@ -52,7 +52,7 @@ describe.each(PAGES)('%s', (path, heading, allowed, refused) => {
 describe('navigation', () => {
   it.each([
     ['inspector', ['Lifts', 'Inspections', 'Defects']],
-    ['contractor', ['Inbox', 'Scan form']],
+    ['contractor', ['Inbox']],
     ['admin', ['Lifts', 'Inspections', 'Overview', 'Defects', 'Admin']],
   ])('shows a %s only their pages', (role, labels) => {
     loginAs(role)

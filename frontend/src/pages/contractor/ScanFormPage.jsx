@@ -10,7 +10,11 @@ import { CARD, PRIMARY_BUTTON, SECONDARY_BUTTON } from './defectFormat'
 // Feature: F05.7 scan paper inspection forms (P2) - the scan pre-fills results the user confirms
 // Visual design: Figma Make "Lift Contractor Defect Spot-Check" (Scan paper form)
 // Prototype only: "scanning" waits 2 seconds and shows sample results. No file leaves the browser.
-// Route: /scan (contractor only), sidebar entry "Scan form" under Inbox.
+//
+// NOT ROUTED YET (kept out of shared files on purpose). To open it at /scan from the contractor sidebar:
+//   App.jsx    <Route path="/scan" element={<ScanFormPage />} /> next to /inbox (same role guard)
+//   routes.js  { path: '/scan', label: 'Scan form', Icon: ScanLine, roles: ['contractor'] } after Inbox
+//   tests/shared/skeletonPages.test.jsx  contractor nav becomes ['Inbox', 'Scan form']
 
 const MAX_BYTES = 5 * 1024 * 1024
 const FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf']

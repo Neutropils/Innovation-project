@@ -15,10 +15,17 @@
 //
 //   isOverdue(defect, today)  -  true when past due and not closed. A flag, not a status.
 //
+//   getDefect(defectId, user)             -  one defect for the detail page (F02.2)
+//   getHistory(defectId, user)            -  its defect_events, oldest first (F02.10)
+//   reassign(defectId, { contractorId, reason }, user)  -  admin moves it to another company (F02.4)
+//   A contractor only sees their own company's defects; anyone else's answer 404.
+//
 // Built in the skeleton so everyone can code against real behaviour from day 1.
-// Still Si Qi's to finish: confirm due-date rules with EMS, reassignment (F02.4), filters,
-// history, exports and overview.
-const { Defect, Inspection, InspectionResult, Lift } = require('../models')
+// Still Si Qi's to finish: confirm due-date rules with EMS, filters, exports and overview.
+const {
+  Defect, DefectEvent, Inspection, InspectionResult, ChecklistItem, Lift, Contractor, User,
+} = require('../models')
+const sequelize = require('../config')
 const { logEvent } = require('./auditService')
 const { appError } = require('../utils')
 
@@ -132,6 +139,118 @@ async function transition(defectId, toStatus, user, { note = null, reason = null
   return defect.reload({ transaction })
 }
 
+// ─── Reading one defect and its history ───────────────────────────────────────
+
+const displayId = (id) => `DEF-${String(id).padStart(6, '0')}`
+
+// A contractor may only see defects assigned to their own company. Answer 404 rather
+// than 403 so another company's defect numbers are not confirmed to exist.
+function assertCanSee(defect, user) {
+  if (!defect || (user.role === 'contractor' && user.contractorId !== defect.contractorId)) {
+    throw appError(404, 'NOT_FOUND', 'Defect not found')
+  }
+}
+
+function toDefectDto(d) {
+  const lift = d.lift || {}
+  return {
+    id: d.id,
+    code: displayId(d.id),
+    inspectionId: d.inspectionId,
+    liftId: d.liftId,
+    liftCode: lift.liftCode ?? null,
+    liftName: lift.block ? `Blk ${lift.block} ${lift.street}` : null,
+    item: d.result?.item?.description ?? null,
+    description: d.description,
+    location: d.location,
+    severity: d.severity,
+    status: d.status,
+    contractorId: d.contractorId,
+    contractorName: d.contractor?.name ?? null,
+    dueDate: d.dueDate,
+    overdue: isOverdue(d),
+    createdAt: d.createdAt,
+    closedAt: d.closedAt,
+  }
+}
+
+async function getDefect(defectId, user) {
+  const defect = await Defect.findByPk(defectId, {
+    include: [
+      { model: Lift, as: 'lift', attributes: ['id', 'liftCode', 'block', 'street'] },
+      { model: Contractor, as: 'contractor', attributes: ['id', 'name'] },
+      {
+        model: InspectionResult, as: 'result', attributes: ['id'],
+        include: [{ model: ChecklistItem, as: 'item', attributes: ['id', 'code', 'description'] }],
+      },
+    ],
+  })
+  assertCanSee(defect, user)
+  return toDefectDto(defect)
+}
+
+// F02.10: every change to the defect, oldest first. Rows are written by createFromInspection(),
+// transition() and reassign() (and Jerald's actions through transition()).
+async function getHistory(defectId, user) {
+  const defect = await Defect.findByPk(defectId, { attributes: ['id', 'contractorId'] })
+  assertCanSee(defect, user)
+
+  const events = await DefectEvent.findAll({
+    where: { defectId },
+    include: [{ model: User, as: 'actor', attributes: ['id', 'name', 'role'] }],
+    order: [['createdAt', 'ASC'], ['id', 'ASC']],
+  })
+  return events.map((e) => ({
+    id: e.id,
+    action: e.action,
+    fromStatus: e.fromStatus,
+    toStatus: e.toStatus,
+    note: e.note,
+    createdAt: e.createdAt,
+    actor: e.actor ? { id: e.actor.id, name: e.actor.name, role: e.actor.role } : null,
+  }))
+}
+
+// ─── Reassignment (F02.4) ─────────────────────────────────────────────────────
+
+// Admin moves a defect to another lift company. The status stays the same, so this does
+// not go through transition(). Rules: design/workflow-diagram.md ("Any except closed").
+async function reassign(defectId, { contractorId, reason }, user) {
+  if (!(reason && reason.trim())) {
+    throw appError(422, 'VALIDATION_ERROR', 'A reason is required to reassign a defect')
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    // Lock the row so a status change or a second reassignment can't interleave with this one
+    const defect = await Defect.findByPk(defectId, { transaction, lock: transaction.LOCK.UPDATE })
+    if (!defect) throw appError(404, 'NOT_FOUND', 'Defect not found')
+    if (defect.status === 'closed') {
+      throw appError(409, 'DEFECT_CLOSED', 'A closed defect cannot be reassigned')
+    }
+    if (defect.contractorId === contractorId) {
+      throw appError(422, 'VALIDATION_ERROR', 'The defect is already assigned to this contractor')
+    }
+
+    const [from, to] = await Promise.all([
+      Contractor.findByPk(defect.contractorId, { attributes: ['id', 'name'], transaction }),
+      Contractor.findByPk(contractorId, { attributes: ['id', 'name', 'isActive'], transaction }),
+    ])
+    if (!to || !to.isActive) {
+      throw appError(422, 'VALIDATION_ERROR', 'Choose an active contractor')
+    }
+
+    await defect.update({ contractorId }, { transaction })
+    await logEvent({
+      defectId: defect.id,
+      actorId: user.sub,
+      action: 'reassigned',
+      note: `From ${from ? from.name : 'unknown contractor'} to ${to.name}. Reason: ${reason.trim()}`,
+    }, { transaction })
+  })
+
+  return getDefect(defectId, user)
+}
+
 module.exports = {
   SEVERITY_DUE_DAYS,
   TRANSITIONS,
@@ -140,4 +259,7 @@ module.exports = {
   isOverdue,
   createFromInspection,
   transition,
+  getDefect,
+  getHistory,
+  reassign,
 }

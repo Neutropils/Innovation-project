@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { useAuth } from '@/hooks'
 import { cn } from '@/lib'
 import DefectCard from './DefectCard'
 import { isDefectOverdue } from './defectFormat'
 import { CONTRACTOR_NAME } from './mockDefects'
-import { useDefects } from './defectStore'
+import { acknowledgeDefect, useDefects } from './defectStore'
 
 // Owner: Jerald
 // Features: F03.2 assigned-defect inbox, F03.3 acknowledge - contractor home
@@ -50,7 +49,6 @@ function byUrgency(a, b) {
 
 export default function InboxPage() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const defects = useDefects()
   const [activeKey, setActiveKey] = useState('new')
 
@@ -59,10 +57,9 @@ export default function InboxPage() {
   const visible = tabDefects(activeTab).sort(byUrgency)
   const initial = (user?.name?.trim()?.[0] ?? 'C').toUpperCase()
 
-  // Opens the defect so the contractor reads it first; the acknowledgement itself only
-  // happens when they press "Acknowledge defect" on the detail page.
+  // Acknowledges in place: the card moves to the In progress tab.
   function acknowledge(id) {
-    navigate(`/defects/${id}`)
+    acknowledgeDefect(id, user?.name ?? 'Contractor')
   }
 
   return (
