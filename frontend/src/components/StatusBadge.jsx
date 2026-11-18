@@ -19,7 +19,8 @@ const STATUS_META = {
 // Same rule as defectService.isOverdue on the backend: past due and not closed.
 export function isOverdue(status, dueDate, today = new Date()) {
   if (!dueDate || status === 'closed') return false
-  return dueDate < today.toISOString().slice(0, 10)
+  const local = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  return dueDate < local
 }
 
 const PILL = 'rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset'

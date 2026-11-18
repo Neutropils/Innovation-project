@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, ChevronRight, Download, FilterX, Loader2, Search, SearchX, ShieldCheck, SlidersHorizontal, Wrench, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Download, FilterX, Loader2, Search, SearchX, ShieldCheck, SlidersHorizontal, Wrench, X } from 'lucide-react'
 import api from '@/api'
 import { cn } from '@/lib/utils'
 import StatusBadge from '@/components/StatusBadge'
@@ -8,16 +8,18 @@ import { EmptyState, ErrorState } from '@/components/StateViews'
 import { OfflineBanner, OfflineState, readSaved, saveCopy, useOfflineLoad } from '@/components/OfflineMode'
 import DemoScenarioBar, { useScenario } from '@/prototype/DemoScenarioBar'
 import PageHero, { CARD, PageShell } from '@/components/PageHero'
-import { SEVERITY_META, SEVERITY_OPTIONS, STATUS_OPTIONS, dueText, initials, matchesSearch } from './defectDisplay'
+import { SEVERITY_META, SEVERITY_OPTIONS, STATUS_OPTIONS, dueText, formatShortDate, initials, localIso, matchesSearch } from './defectDisplay'
 
 // Owner: Si Qi
 // Features: F02.3 grouped by contractor, F02.8 filters, F02.9 overdue, F05.4 export
 // Wireframe: design/screens.md "Defects"
-// Filters and search live in the URL (?contractorId=&status=&severity=&overdue=&q=) so the Overview
-// counts can link straight to a filtered list. Each row links to /defects/<id> (Jerald's page).
+// Filters and search live in the URL (?contractorId=&status=&severity=&overdue=&dueFrom=&dueTo=&q=)
+// so the Overview counts can link straight to a filtered list. Each row links to /defects/<id> (Jerald's page).
+// The due-date range doubles as the report date range for Export CSV (F05.6).
 
-const FILTER_KEYS = ['contractorId', 'status', 'severity', 'overdue']
-// Search (?q=) runs on the loaded list, so it is instant and also works offline.
+const FILTER_KEYS = ['contractorId', 'status', 'severity', 'overdue', 'dueFrom', 'dueTo']
+// Search (?q=) runs on the loaded list, so it is instant and also works offline. It is also how
+// to find one lift's defects (lift code or block) - simpler than a dropdown of every lift.
 
 const selectClass =
   'h-10 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -30,6 +32,15 @@ function FilterSelect({ label, value, onChange, options, allLabel }) {
         <option value="">{allLabel}</option>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    </label>
+  )
+}
+
+function FilterDate({ label, value, onChange, min, max }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input type="date" value={value} min={min || undefined} max={max || undefined} onChange={(e) => onChange(e.target.value)} className={selectClass} />
     </label>
   )
 }
@@ -51,6 +62,24 @@ function DefectRow({ defect }) {
             <span>{defect.liftCode} {defect.liftName}</span>
           </span>
           <span className="mt-0.5 block text-sm font-semibold text-foreground">{defect.item}</span>
+          {/* Where it came from: the checklist item that failed and the inspection it was found in */}
+          {(defect.checklistItem?.code || defect.inspectionCode) && (
+            <span className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+              <ClipboardList className="mt-px h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+              <span className="min-w-0">
+                {defect.checklistItem?.code && (
+                  <>
+                    <span className="font-mono font-medium text-foreground/80">{defect.checklistItem.code}</span>{' '}
+                    {defect.checklistItem.text}
+                    {defect.checklistItem.section && <> · {defect.checklistItem.section}</>}
+                  </>
+                )}
+                {defect.inspectionCode && (
+                  <>{defect.checklistItem?.code ? ' · ' : ''}from <span className="font-mono">{defect.inspectionCode}</span></>
+                )}
+              </span>
+            </span>
+          )}
           <span className="mt-2 flex flex-wrap items-center gap-1.5">
             <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', severity.className)}>{severity.label}</span>
             <StatusBadge status={defect.status} />
@@ -98,7 +127,7 @@ function downloadCsv(text) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `elev8-defects-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `elev8-defects-${localIso()}.csv`
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -144,7 +173,6 @@ export default function DefectsPage() {
       })
       .catch(() => setContractors(readSaved('contractors')?.data ?? []))
   }, [scenario])
-
   // Back to wherever the admin came from (usually an Overview count); Overview if opened directly.
   function goBack() {
     if (location.key !== 'default') navigate(-1)
@@ -158,7 +186,10 @@ export default function DefectsPage() {
     filters.status && { key: 'status', label: optionLabel(STATUS_OPTIONS, filters.status) },
     filters.severity && { key: 'severity', label: optionLabel(SEVERITY_OPTIONS, filters.severity) },
     filters.overdue === 'true' && { key: 'overdue', label: 'Overdue only' },
+    filters.dueFrom && { key: 'dueFrom', label: `Due from ${formatShortDate(filters.dueFrom)}` },
+    filters.dueTo && { key: 'dueTo', label: `Due by ${formatShortDate(filters.dueTo)}` },
   ].filter(Boolean)
+  const badDateRange = Boolean(filters.dueFrom && filters.dueTo && filters.dueFrom > filters.dueTo)
 
   // Clears the filters but keeps the search
   function clearFilters() {
@@ -246,7 +277,7 @@ export default function DefectsPage() {
             onChange={(e) => setFilter('q', e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setFilter('q', '') }}
             aria-label="Search defects"
-            placeholder="Search defects"
+            placeholder="Search lift, defect or company"
             className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-10 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
           {q && (
@@ -284,7 +315,7 @@ export default function DefectsPage() {
         {filtersOpen && (
           <div
             id="defect-filters"
-            className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 md:grid-cols-[1fr_1fr_1fr_auto] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1"
+            className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 md:grid-cols-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1"
           >
             <div className="col-span-2 md:col-span-1">
               <FilterSelect
@@ -297,6 +328,13 @@ export default function DefectsPage() {
             </div>
             <FilterSelect label="Status" value={filters.status} onChange={(v) => setFilter('status', v)} allLabel="All statuses" options={STATUS_OPTIONS} />
             <FilterSelect label="Severity" value={filters.severity} onChange={(v) => setFilter('severity', v)} allLabel="All severities" options={SEVERITY_OPTIONS} />
+            <FilterDate label="Due from" value={filters.dueFrom} onChange={(v) => setFilter('dueFrom', v)} max={filters.dueTo} />
+            <FilterDate label="Due to" value={filters.dueTo} onChange={(v) => setFilter('dueTo', v)} min={filters.dueFrom} />
+            {badDateRange && (
+              <p role="alert" className="col-span-2 -mt-1 text-xs text-destructive md:col-span-3">
+                “Due from” is after “Due to”, so nothing can match. Change one of the dates.
+              </p>
+            )}
             <div className="col-span-2 flex items-end md:col-span-1">
               <button
                 type="button"
@@ -383,7 +421,7 @@ export default function DefectsPage() {
           <EmptyState
             Icon={SearchX}
             title="No defects match these filters"
-            message="Try a different contractor, status or severity."
+            message="Try a different contractor, status or severity, or widen the due dates."
             action={
               <button type="button" onClick={() => setSearchParams({}, { replace: true })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
                 <FilterX className="h-4 w-4" aria-hidden="true" />

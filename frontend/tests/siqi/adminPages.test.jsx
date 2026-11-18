@@ -1,10 +1,14 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import App from '@/App'
 import api from '@/api'
-import { CONTRACTORS, DEFECTS, EMPTY_OVERVIEW, isOverdue, overview, queryDefects } from '@/prototype/mockData'
+import { statusBreakdown } from '@/pages/overview/OverviewPage'
+import { localIso } from '@/pages/defects/defectDisplay'
+import { CONTRACTORS, DEFECTS, EMPTY_OVERVIEW, defectsCsv, isOverdue, overview, queryDefects } from '@/prototype/mockData'
+// Links each demo defect to the inspection and checklist item that found it
+import '@/prototype/inspectionRecords'
 
 // The pages call the shared Axios instance; answer from the prototype data with no delay.
 jest.mock('@/api', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() } }))
@@ -120,7 +124,7 @@ describe('Overview', () => {
     const overdueTile = await screen.findByRole('link', { name: /Overdue/ })
     expect(overdueTile).toHaveTextContent(String(counts.overdue))
     expect(overdueTile).toHaveAttribute('href', '/defects?overdue=true')
-    expect(screen.getByRole('link', { name: /Apex Lifts/ })).toHaveAttribute('href', '/defects?contractorId=1&status=active')
+    expect(screen.getByRole('button', { name: /Apex Lifts/ })).toBeInTheDocument()
   })
 
   it('opens the Defects page filtered to overdue when the Overdue count is clicked', async () => {
@@ -197,7 +201,7 @@ describe('Defects', () => {
 describe('prototype defect data', () => {
   it('filters "Not closed" and overdue the same way the backend rule does', () => {
     expect(queryDefects({ status: 'active' }).every((d) => d.status !== 'closed')).toBe(true)
-    expect(queryDefects({ overdue: 'true' }).every((d) => d.status !== 'closed' && d.dueDate < new Date().toISOString().slice(0, 10))).toBe(true)
+    expect(queryDefects({ overdue: 'true' }).every((d) => d.status !== 'closed' && d.dueDate < localIso())).toBe(true)
   })
 
   it('keeps the overview counts consistent with the defect list', () => {
@@ -252,7 +256,7 @@ describe('Overview summary', () => {
     const worst = [...counts.byContractor].sort((a, b) => b.overdue - a.overdue || b.open - a.open)[0]
     expect(await screen.findByText(new RegExp(`${worst.name} needs chasing first`))).toBeInTheDocument()
     const list = screen.getByRole('region', { name: 'Needs attention' })
-    expect(within(list).getAllByRole('link')[0]).toHaveTextContent(worst.name)
+    expect(within(list).getAllByRole('button')[0]).toHaveTextContent(worst.name)
   })
 })
 
@@ -297,5 +301,121 @@ describe('Expandable filters', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Clear all' }))
     expect(screen.getByRole('searchbox', { name: 'Search defects' })).toHaveValue('door')
     expect(await screen.findByText(/match your search$/)).toBeInTheDocument()
+  })
+})
+
+describe('Lift search and due-date filters (F02.8, F05.6)', () => {
+  const dayIso = (offset) => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + offset)
+    return localIso(d)
+  }
+
+  it('gives every demo defect a lift id from the lift register', () => {
+    expect(DEFECTS.every((d) => Number.isInteger(d.liftId))).toBe(true)
+  })
+
+  it('finds one lift\'s defects by typing its code in search (no lift dropdown)', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    await screen.findByRole('region', { name: 'Apex Lifts' })
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search defects' }), 'LIFT-0427')
+
+    const expected = DEFECTS.filter((d) => d.liftCode === 'LIFT-0427')
+    expect(await screen.findByText(`${expected.length} defects match your search`)).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /DEF-/ }).every((a) => a.textContent.includes('LIFT-0427'))).toBe(true)
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    expect(screen.queryByLabelText('Lift')).not.toBeInTheDocument()
+  })
+
+  it('narrows to defects due within the chosen dates, both ends included', async () => {
+    serveDemoData()
+    const from = dayIso(0)
+    const to = dayIso(7)
+    const expected = DEFECTS.filter((d) => d.dueDate >= from && d.dueDate <= to)
+    expect(expected.length).toBeGreaterThan(0)
+    expect(expected.length).toBeLessThan(DEFECTS.length)
+
+    renderAt('/defects')
+    await screen.findByRole('region', { name: 'Apex Lifts' })
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    fireEvent.change(screen.getByLabelText('Due from'), { target: { value: from } })
+    fireEvent.change(screen.getByLabelText('Due to'), { target: { value: to } })
+
+    expect(await screen.findByText(`${expected.length} defect${expected.length === 1 ? '' : 's'} match your filters`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Remove filter: Due from/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Remove filter: Due by/ })).toBeInTheDocument()
+  })
+
+  it('exports only the searched lift and the chosen date range', async () => {
+    serveDemoData()
+    URL.createObjectURL = jest.fn(() => 'blob:x')
+    URL.revokeObjectURL = jest.fn()
+    renderAt(`/defects?q=LIFT-0427&dueFrom=${dayIso(-30)}&dueTo=${dayIso(30)}`)
+    await screen.findByText(/match your search and filters/)
+    await userEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+    expect(api.get).toHaveBeenCalledWith('/defects/export', expect.objectContaining({
+      params: { dueFrom: dayIso(-30), dueTo: dayIso(30), q: 'LIFT-0427' },
+    }))
+  })
+
+  it('warns when "Due from" is after "Due to"', async () => {
+    serveDemoData()
+    renderAt(`/defects?dueFrom=${dayIso(10)}&dueTo=${dayIso(1)}`)
+    expect(await screen.findByText('No defects match these filters')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('“Due from” is after “Due to”')
+  })
+
+  it('applies the same rules in the prototype data (lift, inclusive dates, export)', () => {
+    const due = DEFECTS[0].dueDate
+    expect(queryDefects({ liftId: '1' }).every((d) => d.liftCode === 'LIFT-0427')).toBe(true)
+    expect(queryDefects({ dueFrom: due, dueTo: due }).every((d) => d.dueDate === due)).toBe(true)
+    expect(queryDefects({ dueFrom: due, dueTo: due }).map((d) => d.id)).toContain(DEFECTS[0].id)
+    const csvRows = defectsCsv({ liftId: '1' }).split('\n').slice(1)
+    expect(csvRows).toHaveLength(queryDefects({ liftId: '1' }).length)
+  })
+})
+
+describe('Contractor overview by status (F08.3)', () => {
+  it('keeps each company to one row, and shows its defects by status when tapped', async () => {
+    serveDemoData()
+    renderAt('/overview')
+    const list = await screen.findByRole('region', { name: 'Needs attention' })
+    const apex = overview('month').byContractor.find((c) => c.name === 'Apex Lifts')
+    const row = await within(list).findByRole('button', { name: /Apex Lifts/ })
+    expect(row).toHaveTextContent(`${apex.open} open`)
+    expect(row).toHaveTextContent(`${apex.overdue} overdue`)
+    expect(row).toHaveAttribute('aria-expanded', 'false')
+    expect(within(list).queryByRole('list', { name: 'Apex Lifts by status' })).not.toBeInTheDocument()
+
+    await userEvent.click(row)
+    const breakdown = within(list).getByRole('list', { name: 'Apex Lifts by status' })
+    const toVerify = within(breakdown).getByRole('link', { name: /To verify/ })
+    expect(toVerify).toHaveTextContent(String(apex.byStatus.pending_verification))
+    expect(toVerify).toHaveAttribute('href', '/defects?contractorId=1&status=pending_verification')
+    expect(within(list).getByRole('link', { name: /View their defects/ })).toHaveAttribute('href', '/defects?contractorId=1&status=active')
+
+    await userEvent.click(row)
+    expect(within(list).queryByRole('list', { name: 'Apex Lifts by status' })).not.toBeInTheDocument()
+  })
+})
+
+describe('Where each defect came from', () => {
+  it('shows the failed checklist item and the inspection on every defect row', async () => {
+    serveDemoData()
+    renderAt('/defects')
+    const row = await screen.findByRole('link', { name: /DEF-000088/ })
+    const d = DEFECTS.find((x) => x.id === 88)
+    expect(row).toHaveTextContent('LC-02 Door safety edge or sensor reopens the doors · Lift car')
+    expect(row).toHaveTextContent(`from ${d.inspectionCode}`)
+  })
+
+  it('finds defects by checklist code, and exports the checklist item and inspection', () => {
+    expect(queryDefects({ q: 'LC-02' }).map((d) => d.id).sort()).toEqual([49, 88])
+    const [header, first] = defectsCsv({ q: 'DEF-000088' }).split('\n')
+    expect(header).toContain('Checklist item,Inspection')
+    expect(first).toContain('LC-02 Door safety edge or sensor reopens the doors')
   })
 })

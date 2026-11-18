@@ -27,12 +27,9 @@ const PLACEHOLDERS = [
   ['post', '/api/users', 'admin', 'inspector'],
   ['patch', '/api/users/1', 'admin', 'contractor'],
   // Kandha - built; tested in tests/kandha/
-  // Si Qi
+  // Si Qi - detail, history and assign built; tested in tests/siqi/
   ['get', '/api/defects', 'admin', 'contractor'],
   ['get', '/api/defects/export', 'inspector', 'contractor'],
-  ['get', '/api/defects/1', 'contractor', 'member'],
-  ['get', '/api/defects/1/history', 'inspector', 'member'],
-  ['patch', '/api/defects/1/assign', 'admin', 'inspector'],
   ['get', '/api/overview', 'admin', 'inspector'],
   // Jerald
   ['post', '/api/defects/1/acknowledge', 'contractor', 'inspector'],
