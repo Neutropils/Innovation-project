@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Camera, Check, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/hooks'
 import { cn } from '@/lib'
 import DefectCard from './DefectCard'
 import { isDefectOverdue } from './defectFormat'
 import { CONTRACTOR_NAME } from './mockDefects'
-import { acknowledgeDefect, useDefects } from './defectStore'
+import { useDefects } from './defectStore'
+import ScanFormPage from './ScanFormPage'
 
 // Owner: Jerald
 // Features: F03.2 assigned-defect inbox, F03.3 acknowledge - contractor home
@@ -49,17 +51,23 @@ function byUrgency(a, b) {
 
 export default function InboxPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const defects = useDefects()
   const [activeKey, setActiveKey] = useState('new')
+
+  // The scan page opens at /inbox?scan=1, so it needs no route of its own in the shared App.jsx.
+  if (searchParams.get('scan')) return <ScanFormPage />
 
   const tabDefects = (tab) => defects.filter((d) => tab.statuses.includes(d.status))
   const activeTab = TABS.find((t) => t.key === activeKey)
   const visible = tabDefects(activeTab).sort(byUrgency)
   const initial = (user?.name?.trim()?.[0] ?? 'C').toUpperCase()
 
-  // Acknowledges in place: the card moves to the In progress tab.
+  // Opens the defect so the contractor reads it first; the acknowledgement itself only
+  // happens when they press "Acknowledge defect" on the detail page.
   function acknowledge(id) {
-    acknowledgeDefect(id, user?.name ?? 'Contractor')
+    navigate(`/defects/${id}`)
   }
 
   return (
@@ -82,6 +90,22 @@ export default function InboxPage() {
           {initial}
         </span>
       </header>
+
+      <div className="px-4 pt-4 md:px-10 md:pt-6">
+        <Link
+          to="/inbox?scan=1"
+          className="grid w-full grid-cols-[40px_1fr_auto] items-center gap-3 rounded-[15px] border border-[#bde7e1] bg-gradient-to-br from-[#edfcfa] to-[#f8fffe] p-3 text-left text-[#174a46] shadow-[0_4px_14px_rgba(20,184,166,0.08)] transition-colors hover:border-[#14b8a6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#14b8a6] md:max-w-[520px]"
+        >
+          <span className="grid h-10 w-10 place-items-center rounded-[11px] bg-gradient-to-br from-[#17bea9] to-[#0d9f91] text-white">
+            <Camera className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <strong className="text-sm">Scan paper form</strong>
+            <small className="truncate text-xs text-[#66817e]">Turn a paper inspection into digital results</small>
+          </span>
+          <ChevronRight className="h-5 w-5 text-[#55a69e]" aria-hidden="true" />
+        </Link>
+      </div>
 
       <div
         role="tablist"
