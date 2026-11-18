@@ -1,16 +1,19 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { useAuth } from '@/hooks'
 import { cn } from '@/lib'
-import DefectCard, { isDefectOverdue } from './DefectCard'
-import { CONTRACTOR_NAME, getMockDefects } from './mockDefects'
+import DefectCard from './DefectCard'
+import { isDefectOverdue } from './defectFormat'
+import { CONTRACTOR_NAME } from './mockDefects'
+import { useDefects } from './defectStore'
 
 // Owner: Jerald
 // Features: F03.2 assigned-defect inbox, F03.3 acknowledge - contractor home
 // Wireframe: design/screens.md "Inbox"; visual design: Figma Make "Lift Contractor Defect Spot-Check"
 // Each card links to /defects/<id>.
-// Uses hard-coded sample data for now; will switch to GET /api/inbox?status= and
-// POST /api/defects/:id/acknowledge once those endpoints exist.
+// Uses the shared sample data in defectStore.js for now; will switch to GET /api/inbox?status=
+// and POST /api/defects/:id/acknowledge once those endpoints exist.
 
 const TABS = [
   {
@@ -47,18 +50,19 @@ function byUrgency(a, b) {
 
 export default function InboxPage() {
   const { user } = useAuth()
-  const [defects, setDefects] = useState(() => getMockDefects())
+  const navigate = useNavigate()
+  const defects = useDefects()
   const [activeKey, setActiveKey] = useState('new')
-  const [notice, setNotice] = useState('')
 
   const tabDefects = (tab) => defects.filter((d) => tab.statuses.includes(d.status))
   const activeTab = TABS.find((t) => t.key === activeKey)
   const visible = tabDefects(activeTab).sort(byUrgency)
   const initial = (user?.name?.trim()?.[0] ?? 'C').toUpperCase()
 
+  // Opens the defect so the contractor reads it first; the acknowledgement itself only
+  // happens when they press "Acknowledge defect" on the detail page.
   function acknowledge(id) {
-    setDefects((prev) => prev.map((d) => (d.id === id ? { ...d, status: 'acknowledged' } : d)))
-    setNotice(`${id} acknowledged and moved to In progress.`)
+    navigate(`/defects/${id}`)
   }
 
   return (
@@ -122,8 +126,6 @@ export default function InboxPage() {
           )
         })}
       </div>
-
-      <p role="status" className="sr-only">{notice}</p>
 
       <section
         id="inbox-panel"

@@ -34,6 +34,7 @@ import OverviewPage from './pages/overview/OverviewPage'
 // Jerald
 import InboxPage from './pages/contractor/InboxPage'
 import DefectDetailPage from './pages/contractor/DefectDetailPage'
+import ScanFormPage from './pages/contractor/ScanFormPage'
 
 // Redirects authenticated users to their role's home page
 function RoleHomeRedirect() {
@@ -86,6 +87,7 @@ export default function App() {
           {/* ── Contractor only ────────────────────────────────────────────── */}
           <Route element={<RoleRoute roles={['contractor']} />}>
             <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/scan" element={<ScanFormPage />} />
           </Route>
 
           {/* ── Admin only ─────────────────────────────────────────────────── */}

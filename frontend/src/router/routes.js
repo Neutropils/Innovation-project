@@ -1,4 +1,4 @@
-import { Building2, History, Inbox, LayoutDashboard, ShieldCheck, Wrench } from 'lucide-react'
+import { Building2, History, Inbox, LayoutDashboard, ScanLine, ShieldCheck, Wrench } from 'lucide-react'
 
 // NAV_ROUTES drives the sidebar (desktop) and bottom nav (phone) in AppLayout.
 // Every page in design/screens.md is already listed (skeleton PR), so you should not
@@ -17,6 +17,7 @@ export const NAV_ROUTES = [
 
   // ── Jerald ───────────────────────────────────────────────────────────────────
   { path: '/inbox',       label: 'Inbox',       Icon: Inbox,           roles: ['contractor'] },
+  { path: '/scan',        label: 'Scan form',   Icon: ScanLine,        roles: ['contractor'] },
 
   // ── Kwan: admin tools ────────────────────────────────────────────────────────
   { path: '/admin',       label: 'Admin',       Icon: ShieldCheck,     roles: ['admin'] },
