@@ -112,7 +112,7 @@ Every endpoint below is mounted and role-guarded in the skeleton, and answers `5
 | GET | `/api/inspections/:id` | inspector, admin | Kandha | Inspection, answers, defects |
 | PUT | `/api/inspections/:id/results` | inspector | Kandha | Save draft answers |
 | POST | `/api/inspections/:id/submit` | inspector | Kandha | Validate, submit, create defects |
-| GET | `/api/defects?contractorId=&status=&severity=&overdue=&liftId=` | inspector, admin | Si Qi | Filtered list |
+| GET | `/api/defects?contractorId=&liftId=&status=&severity=&overdue=&dueFrom=&dueTo=&q=` | inspector, admin | Si Qi | Filtered list (`dueFrom`/`dueTo` are inclusive YYYY-MM-DD) |
 | GET | `/api/defects/export` | inspector, admin | Si Qi | CSV |
 | GET | `/api/defects/:id` | inspector, admin, contractor (own company) | Si Qi | Detail |
 | GET | `/api/defects/:id/history` | inspector, admin, contractor (own company) | Si Qi | `defect_events` |
