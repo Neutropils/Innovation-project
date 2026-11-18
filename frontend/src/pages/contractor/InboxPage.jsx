@@ -1,14 +1,187 @@
-import { Inbox } from 'lucide-react'
-import PagePlaceholder from '@/components/PagePlaceholder'
+import { useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Camera, Check, ChevronRight } from 'lucide-react'
+import { useAuth } from '@/hooks'
+import { cn } from '@/lib'
+import DefectCard from './DefectCard'
+import { isDefectOverdue } from './defectFormat'
+import { CONTRACTOR_NAME } from './mockDefects'
+import { useDefects } from './defectStore'
+import ScanFormPage from './ScanFormPage'
 
 // Owner: Jerald
 // Features: F03.2 assigned-defect inbox, F03.3 acknowledge - contractor home
-// Wireframe: design/screens.md "Inbox"
+// Wireframe: design/screens.md "Inbox"; visual design: Figma Make "Lift Contractor Defect Spot-Check"
 // Each card links to /defects/<id>.
+// Uses the shared sample data in defectStore.js for now; will switch to GET /api/inbox?status=
+// and POST /api/defects/:id/acknowledge once those endpoints exist.
+
+const TABS = [
+  {
+    key: 'new',
+    label: 'New',
+    statuses: ['open'],
+    showCount: true,
+    emptyTitle: 'No new defects',
+    emptyText: "You're all caught up.",
+  },
+  {
+    key: 'in_progress',
+    label: 'In progress',
+    statuses: ['acknowledged', 'in_progress', 'pending_verification'],
+    showCount: true,
+    emptyTitle: 'Nothing in progress',
+    emptyText: 'Acknowledged defects will appear here.',
+  },
+  {
+    key: 'done',
+    label: 'Done',
+    statuses: ['closed'],
+    showCount: false,
+    emptyTitle: 'No completed defects',
+    emptyText: 'Signed-off and closed defects will appear here.',
+  },
+]
+
+// Overdue first, then the soonest due date.
+function byUrgency(a, b) {
+  const overdueDiff = Number(isDefectOverdue(b)) - Number(isDefectOverdue(a))
+  return overdueDiff || a.dueDate.localeCompare(b.dueDate)
+}
+
 export default function InboxPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const defects = useDefects()
+  const [activeKey, setActiveKey] = useState('new')
+
+  // The scan page opens at /inbox?scan=1, so it needs no route of its own in the shared App.jsx.
+  if (searchParams.get('scan')) return <ScanFormPage />
+
+  const tabDefects = (tab) => defects.filter((d) => tab.statuses.includes(d.status))
+  const activeTab = TABS.find((t) => t.key === activeKey)
+  const visible = tabDefects(activeTab).sort(byUrgency)
+  const initial = (user?.name?.trim()?.[0] ?? 'C').toUpperCase()
+
+  // Opens the defect so the contractor reads it first; the acknowledgement itself only
+  // happens when they press "Acknowledge defect" on the detail page.
+  function acknowledge(id) {
+    navigate(`/defects/${id}`)
+  }
+
   return (
-    <PagePlaceholder title="Inbox" Icon={Inbox} owner="Jerald" features="your company's defects, acknowledge">
-      <p>Uses GET /api/inbox?status=.</p>
-    </PagePlaceholder>
+    <div className="flex min-h-full flex-col bg-[#f7f9fa] text-[#15202e]">
+      <header className="flex min-h-[112px] items-center justify-between gap-4 bg-[#0b1728] px-5 py-6 text-white md:px-10 md:py-7">
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8da3b9]">
+            Contractor workspace
+          </p>
+          {/* Reads "Apex Lifts - Inbox"; only "Inbox" is the h1 so the page heading stays the same on every role home. */}
+          <div className="flex flex-wrap items-baseline gap-x-1.5 text-[22px] font-bold tracking-[-0.03em] md:text-[26px]">
+            <span>{CONTRACTOR_NAME} -</span>
+            <h1>Inbox</h1>
+          </div>
+        </div>
+        <span
+          className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full border border-white/15 bg-[#14b8a6]/15 text-sm font-bold text-[#a8fff4]"
+          aria-hidden="true"
+        >
+          {initial}
+        </span>
+      </header>
+
+      <div className="px-4 pt-4 md:px-10 md:pt-6">
+        <Link
+          to="/inbox?scan=1"
+          className="grid w-full grid-cols-[40px_1fr_auto] items-center gap-3 rounded-[15px] border border-[#bde7e1] bg-gradient-to-br from-[#edfcfa] to-[#f8fffe] p-3 text-left text-[#174a46] shadow-[0_4px_14px_rgba(20,184,166,0.08)] transition-colors hover:border-[#14b8a6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#14b8a6] md:max-w-[520px]"
+        >
+          <span className="grid h-10 w-10 place-items-center rounded-[11px] bg-gradient-to-br from-[#17bea9] to-[#0d9f91] text-white">
+            <Camera className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <strong className="text-sm">Scan paper form</strong>
+            <small className="truncate text-xs text-[#66817e]">Turn a paper inspection into digital results</small>
+          </span>
+          <ChevronRight className="h-5 w-5 text-[#55a69e]" aria-hidden="true" />
+        </Link>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Defect status"
+        className="grid grid-cols-[1fr_1.45fr_0.8fr] gap-1 border-b border-[#e4e9ec] bg-white px-3.5 md:px-[34px]"
+      >
+        {TABS.map((tab) => {
+          const selected = tab.key === activeKey
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              id={`tab-${tab.key}`}
+              aria-selected={selected}
+              aria-controls="inbox-panel"
+              onClick={() => setActiveKey(tab.key)}
+              className={cn(
+                'relative flex min-h-[52px] items-center justify-center gap-1 px-1 text-sm font-semibold transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#14b8a6]',
+                selected ? 'text-[#0b877b]' : 'text-[#78838e] hover:text-[#4e5b67]'
+              )}
+            >
+              {tab.label}
+              {tab.showCount && (
+                <span
+                  className={cn(
+                    'grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px]',
+                    selected ? 'bg-[#ccfbf1] text-[#08766d]' : 'bg-[#edf0f2] text-[#55616d]'
+                  )}
+                >
+                  {tabDefects(tab).length}
+                </span>
+              )}
+              {selected && (
+                <span className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-t-sm bg-[#14b8a6]" aria-hidden="true" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <section
+        id="inbox-panel"
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab.key}`}
+        className="flex-1 px-4 pb-10 pt-4 md:px-10 md:pb-14 md:pt-6"
+      >
+        <div className="mx-0.5 mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold text-[#263342]">
+            {visible.length} {visible.length === 1 ? 'defect' : 'defects'}
+          </p>
+          <span className="text-xs font-medium text-[#89939d]">Sorted by urgency</span>
+        </div>
+
+        {visible.length === 0 ? (
+          <div className="px-6 py-14 text-center">
+            <div className="mx-auto mb-4 grid h-[58px] w-[58px] place-items-center rounded-full bg-[#e1faf6] text-[#0f9d8e]">
+              <Check className="h-7 w-7" aria-hidden="true" />
+            </div>
+            <h2 className="mb-1.5 text-base font-bold">{activeTab.emptyTitle}</h2>
+            <p className="text-[13px] text-[#84909a]">{activeTab.emptyText}</p>
+          </div>
+        ) : (
+          <ul className="grid gap-3 lg:grid-cols-2 lg:gap-[18px]">
+            {visible.map((defect) => (
+              <li key={defect.id}>
+                <DefectCard
+                  defect={defect}
+                  onAcknowledge={activeTab.key === 'new' ? acknowledge : undefined}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   )
 }
