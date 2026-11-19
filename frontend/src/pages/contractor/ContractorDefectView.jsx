@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import SeverityBadge from './SeverityBadge'
 import LiftIcon from './LiftIcon'
-import { CONTRACTOR_NAME } from './mockDefects'
 import {
   CARD, PRIMARY_BUTTON, SECONDARY_BUTTON,
   formatDay, formatDue, formatWhen, isDefectOverdue,
@@ -310,7 +309,7 @@ function VerifyPanel({ defect, userName }) {
 
   return (
     <section className={cn(CARD, 'md:p-[22px]', ACTION_PLACE)}>
-      <SectionTitle title="Verify repair" aside={`Submitted by ${CONTRACTOR_NAME}`} />
+      <SectionTitle title="Verify repair" aside={`Submitted by ${defect.contractorName}`} />
       <div className="mb-3.5 grid grid-cols-2 gap-2">
         <div>
           <p className="mb-1.5 ml-0.5 text-xs font-bold text-[#63707b]">Before</p>
@@ -374,10 +373,27 @@ function ActionPanel({ defect, isContractor, userName }) {
     if (status === 'pending_verification') return <SignedOffCard defect={defect} />
     return null
   }
-  if (status === 'open') return <WaitingCard title="Waiting for contractor" text={`${CONTRACTOR_NAME} has not acknowledged this defect yet.`} />
-  if (status === 'acknowledged' || status === 'in_progress') return <WaitingCard title="Repair in progress" text={`${CONTRACTOR_NAME} is working on this defect.`} />
+  if (status === 'open') return <WaitingCard title="Waiting for contractor" text={`${defect.contractorName} has not acknowledged this defect yet.`} />
+  if (status === 'acknowledged' || status === 'in_progress') return <WaitingCard title="Repair in progress" text={`${defect.contractorName} is working on this defect.`} />
   if (status === 'pending_verification') return <VerifyPanel key={defect.id} defect={defect} userName={userName} />
   return null
+}
+
+// For inspectors and admins: Jerald's verification actions, shown under Si Qi's DefectRecordPanel
+// on the Defect detail page (Verify repair with Approve/Reject, or where the repair is up to).
+export function DefectActions({ id }) {
+  const { user } = useAuth()
+  const defects = useDefects()
+  const defect = defects.find((d) => String(d.id) === String(id))
+  if (!defect) return null
+
+  return (
+    <section aria-label="Repair and verification" className="mx-auto max-w-5xl px-4 pb-6 text-[#15202e] md:px-6">
+      {defect.status === 'closed'
+        ? <WaitingCard title="Repair verified" text="This defect is closed. No further action is needed." />
+        : <ActionPanel defect={defect} isContractor={false} userName={user?.name ?? 'Inspector'} />}
+    </section>
+  )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -386,9 +402,10 @@ export default function ContractorDefectView() {
   const { id } = useParams()
   const { user } = useAuth()
   const defects = useDefects()
-  const defect = defects.find((d) => String(d.id) === id)
-
   const isContractor = user?.role === 'contractor'
+  // Contractors only see their own company's defects; anything else reads as not found.
+  const defect = defects.find((d) => String(d.id) === id && (!isContractor || d.contractorId === user?.contractorId))
+
   const userName = user?.name ?? (isContractor ? 'Contractor' : 'Inspector')
   const backTo = getRoleHome(user?.role)
   const backLabel = isContractor ? 'Back to inbox' : 'Back'

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { DEFECTS as SHARED_DEFECTS } from '@/prototype/mockData'
 import { getMockDefects, toLocalDateString } from './mockDefects'
 
 // Owner: Jerald
@@ -33,8 +34,13 @@ export function resetDefects() {
 }
 
 // Applies change(defect) to the defect with this id when it is in one of the allowed statuses.
+// The new status is also copied onto the shared prototype record (prototype only), so
+// Si Qi's defect panel, the Defects list and the Overview show the same status.
 function update(id, allowed, change) {
   defects = current().map((d) => (d.id === id && allowed.includes(d.status) ? { ...d, ...change(d) } : d))
+  const updated = defects.find((d) => d.id === id)
+  const shared = SHARED_DEFECTS.find((d) => d.id === id)
+  if (updated && shared) shared.status = updated.status
   listeners.forEach((l) => l())
 }
 

@@ -1,9 +1,10 @@
-// Owner: Jerald
-// Hard-coded sample defects for the Inbox and Defect detail until the API is built.
-// Matches the Figma Make prototype. Dates are worked out from today, so
-// "Due in 7 days" and "Overdue by 2 days" stay correct whenever the page is opened.
+import { CONTRACTORS, DEFECTS } from '@/prototype/mockData'
 
-export const CONTRACTOR_NAME = 'Apex Lifts'
+// Owner: Jerald
+// Sample defects for the Inbox and Defect detail until the API is built.
+// Built from the team's shared prototype data (src/prototype/mockData.js, read only), so a defect
+// number means the same defect on every page - the Inbox, Si Qi's panel, the Defects list.
+// Dates come from that data, which is already relative to today.
 
 // 'YYYY-MM-DD' in the device's local time (toISOString would give the UTC date).
 export function toLocalDateString(date) {
@@ -13,130 +14,52 @@ export function toLocalDateString(date) {
   return `${y}-${m}-${d}`
 }
 
-export function daysFromToday(days, today = new Date()) {
-  return toLocalDateString(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days))
+export function contractorNameFor(contractorId) {
+  return CONTRACTORS.find((c) => c.id === contractorId)?.name ?? 'Your company'
 }
 
-// Called once per page load, so the dates are relative to the day the app is opened.
-export function getMockDefects(today = new Date()) {
-  const day = (n) => daysFromToday(n, today)
-  // ISO timestamp n days from today at a local 'HH:MM'
-  const at = (n, time) => {
-    const [h, m] = time.split(':').map(Number)
-    return new Date(today.getFullYear(), today.getMonth(), today.getDate() + n, h, m).toISOString()
-  }
+const STEPS = ['open', 'acknowledged', 'in_progress', 'pending_verification', 'closed']
+const INSPECTOR_NAME = 'Ivy Tan'
 
-  // id is the number used in URLs (/defects/81); code is what people read (DEF-000081).
-  // history is newest first; `by` marks a progress note posted by the contractor.
-  return [
-    {
-      id: 81,
-      code: 'DEF-000081',
-      severity: 'Critical',
-      liftCode: 'LIFT-0311',
-      address: 'Blk 305 Hougang St 31',
-      description: 'Machine brake noise',
-      photoLabel: 'Machine room inspection',
-      status: 'open',
-      reportedAt: at(-6, '09:35'),
-      dueDate: day(-2),
-      dueTime: '17:00',
-      history: [
-        { title: `Defect assigned to ${CONTRACTOR_NAME}`, at: at(-6, '09:42') },
-        { title: 'Defect reported by Tan', at: at(-6, '09:35') },
-      ],
-    },
-    {
-      id: 88,
-      code: 'DEF-000088',
-      severity: 'Major',
-      liftCode: 'LIFT-0427',
-      address: 'Blk 512 Hougang Ave 10',
-      description: 'Door sensor not responding',
-      photoLabel: 'Lift car inspection',
-      status: 'open',
-      reportedAt: at(-6, '11:02'),
-      dueDate: day(7),
-      dueTime: '17:00',
-      history: [
-        { title: `Defect assigned to ${CONTRACTOR_NAME}`, at: at(-6, '11:10') },
-        { title: 'Defect reported by Tan', at: at(-6, '11:02') },
-      ],
-    },
-    {
-      id: 74,
-      code: 'DEF-000074',
-      severity: 'Major',
-      liftCode: 'LIFT-0298',
-      address: 'Blk 211 Serangoon Ave 4',
-      description: 'Landing door alignment',
-      photoLabel: 'Landing door inspection',
-      status: 'in_progress',
-      reportedAt: at(-7, '14:48'),
-      dueDate: day(-3),
-      dueTime: '17:00',
-      history: [
-        { title: 'Ordered new door guide shoes', by: 'Lim', at: at(-6, '10:20') },
-        { title: 'Acknowledged by Lim', at: at(-7, '15:14') },
-        { title: 'Defect reported by Tan', at: at(-7, '14:48') },
-      ],
-    },
-    {
-      id: 69,
-      code: 'DEF-000069',
-      severity: 'Minor',
-      liftCode: 'LIFT-0184',
-      address: 'Blk 88 Punggol Way',
-      description: 'Cabin light flickering',
-      photoLabel: 'Lift car inspection',
-      status: 'in_progress',
-      reportedAt: at(-8, '09:50'),
-      dueDate: day(2),
-      dueTime: '17:00',
-      history: [
-        { title: 'Replacement light panel on order', by: 'Lim', at: at(-7, '11:05') },
-        { title: 'Acknowledged by Lim', at: at(-8, '10:22') },
-        { title: 'Defect reported by Tan', at: at(-8, '09:50') },
-      ],
-    },
-    {
-      id: 61,
-      code: 'DEF-000061',
-      severity: 'Major',
-      liftCode: 'LIFT-0356',
-      address: 'Blk 401 Hougang Ave 8',
-      description: 'Emergency bell intermittent',
-      photoLabel: 'Lift car inspection',
-      status: 'in_progress',
-      reportedAt: at(-10, '15:40'),
-      dueDate: day(-2),
-      dueTime: '17:00',
-      history: [
-        { title: 'Rejected by Tan: Audio still cuts out', tone: 'warn', at: at(-6, '13:05') },
-        { title: 'Signed off by Lim', at: at(-6, '11:30') },
-        { title: 'Acknowledged by Lim', at: at(-9, '16:18') },
-        { title: 'Defect reported by Tan', at: at(-10, '15:40') },
-      ],
-    },
-    {
-      id: 52,
-      code: 'DEF-000052',
-      severity: 'Minor',
-      liftCode: 'LIFT-0203',
-      address: 'Blk 117 Rivervale Drive',
-      description: 'Floor indicator dim',
-      photoLabel: 'Lift car inspection',
-      status: 'closed',
-      reportedAt: at(-13, '10:15'),
-      dueDate: day(-10),
-      dueTime: '17:00',
-      completedDate: day(-11),
-      history: [
-        { title: 'Approved by Tan', tone: 'good', at: at(-11, '16:40') },
-        { title: 'Signed off by Lim', at: at(-11, '14:12') },
-        { title: 'Acknowledged by Lim', at: at(-12, '09:10') },
-        { title: 'Defect reported by Tan', at: at(-13, '10:15') },
-      ],
-    },
+// ISO timestamp `days` after a 'YYYY-MM-DD' date at a local 'HH:MM'
+function at(dateStr, days, time) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const [h, min] = time.split(':').map(Number)
+  return new Date(y, m - 1, d + days, h, min).toISOString()
+}
+
+// A believable history for the defect's current status (newest first).
+function historyFor(d) {
+  const reached = (status) => STEPS.indexOf(d.status) >= STEPS.indexOf(status)
+  const events = [
+    { title: `Defect reported by ${INSPECTOR_NAME}`, at: at(d.createdAt, 0, '09:30') },
+    { title: `Defect assigned to ${d.contractorName}`, at: at(d.createdAt, 0, '09:42') },
   ]
+  if (reached('acknowledged')) events.push({ title: `Acknowledged by ${d.contractorName}`, at: at(d.createdAt, 0, '14:10') })
+  if (reached('in_progress')) events.push({ title: 'Started repair work on site', by: d.contractorName, at: at(d.createdAt, 0, '16:25') })
+  if (reached('pending_verification')) events.push({ title: `Signed off by ${d.contractorName}`, at: at(d.createdAt, 0, '17:05') })
+  if (reached('closed')) events.push({ title: `Approved by ${INSPECTOR_NAME}`, tone: 'good', at: at(d.createdAt, 1, '10:20') })
+  return events.reverse()
+}
+
+// Shared prototype defect -> the shape the contractor pages use.
+// Called once per page load (see defectStore.js).
+export function getMockDefects() {
+  return DEFECTS.map((d) => ({
+    id: d.id,
+    code: d.code,
+    severity: d.severity.charAt(0).toUpperCase() + d.severity.slice(1),
+    liftCode: d.liftCode,
+    address: d.liftName,
+    description: d.item,
+    photoLabel: 'Inspection photo',
+    status: d.status,
+    contractorId: d.contractorId,
+    contractorName: d.contractorName,
+    reportedAt: at(d.createdAt, 0, '09:30'),
+    dueDate: d.dueDate,
+    dueTime: '17:00',
+    ...(d.status === 'closed' && { completedDate: toLocalDateString(new Date(at(d.createdAt, 1, '10:20'))) }),
+    history: historyFor(d),
+  }))
 }
