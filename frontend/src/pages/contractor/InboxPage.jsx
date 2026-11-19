@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks'
 import { cn } from '@/lib'
 import DefectCard from './DefectCard'
 import { isDefectOverdue } from './defectFormat'
-import { CONTRACTOR_NAME } from './mockDefects'
+import { contractorNameFor } from './mockDefects'
 import { useDefects } from './defectStore'
 import ScanFormPage from './ScanFormPage'
 
@@ -59,7 +59,9 @@ export default function InboxPage() {
   // The scan page opens at /inbox?scan=1, so it needs no route of its own in the shared App.jsx.
   if (searchParams.get('scan')) return <ScanFormPage />
 
-  const tabDefects = (tab) => defects.filter((d) => tab.statuses.includes(d.status))
+  // Only this contractor's company (from the login token).
+  const tabDefects = (tab) =>
+    defects.filter((d) => d.contractorId === user?.contractorId && tab.statuses.includes(d.status))
   const activeTab = TABS.find((t) => t.key === activeKey)
   const visible = tabDefects(activeTab).sort(byUrgency)
   const initial = (user?.name?.trim()?.[0] ?? 'C').toUpperCase()
@@ -79,7 +81,7 @@ export default function InboxPage() {
           </p>
           {/* Reads "Apex Lifts - Inbox"; only "Inbox" is the h1 so the page heading stays the same on every role home. */}
           <div className="flex flex-wrap items-baseline gap-x-1.5 text-[22px] font-bold tracking-[-0.03em] md:text-[26px]">
-            <span>{CONTRACTOR_NAME} -</span>
+            <span>{contractorNameFor(user?.contractorId)} -</span>
             <h1>Inbox</h1>
           </div>
         </div>
